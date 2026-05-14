@@ -41,7 +41,7 @@ class AccountDataStore(private val context: Context) {
                 currentAccounts.add(account)
             }
             
-            preferences[Keys.ACCOUNTS] = json.encodeToString(currentAccounts)
+            preferences[Keys.ACCOUNTS] = json.encodeToString<List<AccountData>>(currentAccounts.toList())
         }
     }
 
@@ -49,7 +49,7 @@ class AccountDataStore(private val context: Context) {
         context.accountDataStore.edit { preferences ->
             val currentAccounts = getAccounts().toMutableList()
             currentAccounts.removeAll { it.id == accountId }
-            preferences[Keys.ACCOUNTS] = json.encodeToString(currentAccounts)
+            preferences[Keys.ACCOUNTS] = json.encodeToString<List<AccountData>>(currentAccounts.toList())
         }
     }
 
