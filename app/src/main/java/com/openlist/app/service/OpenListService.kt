@@ -150,7 +150,7 @@ class OpenListService : Service() {
                 process = pb.start()
                 isRunning = true
                 updateNotification("OpenList 服务器运行中 (端口 5244)")
-                LogManager.appendLog(this, "OpenList 服务器进程已启动 (PID: ${process?.pid()})")
+                LogManager.appendLog(this, "OpenList 服务器进程已启动")
                 Log.i(TAG, "OpenList 服务器已启动")
 
                 BufferedReader(InputStreamReader(process!!.inputStream)).use { reader ->
