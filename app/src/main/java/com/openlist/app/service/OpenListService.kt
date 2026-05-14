@@ -6,25 +6,17 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.openlist.app.MainActivity
 import com.openlist.app.OpenListApplication
+import com.openlist.app.data.LogManager
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
 
-/**
- * OpenList 后台服务
- *
- * 核心原理：
- * - 将 OpenList 二进制文件以 libopenlist.so 命名放入 jniLibs/<abi>/
- * - Android 安装时会将其提取到 nativeLibraryDir（具有 exec_type SELinux 标签）
- * - 通过 ProcessBuilder 执行该文件，绕过 W^X 限制
- */
 class OpenListService : Service() {
 
     private var process: Process? = null
@@ -38,8 +30,6 @@ class OpenListService : Service() {
         const val ACTION_STOP = "STOP"
         const val ACTION_RESTART = "RESTART"
         const val TAG = "OpenListService"
-
-        /** 通知使用的 Action 字符串 */
         private const val ACTION_NOTIFY_STOP = "com.openlist.app.ACTION_NOTIFY_STOP"
     }
 
@@ -123,37 +113,28 @@ class OpenListService : Service() {
     private fun startServer() {
         serverThread = Thread({
             try {
-                // 1. 找到 nativeLibraryDir 中的 libopenlist.so
                 val nativeLibDir = applicationInfo.nativeLibraryDir
                 val binaryFile = File(nativeLibDir, "libopenlist.so")
 
                 if (!binaryFile.exists()) {
-                    Log.e(TAG, "二进制文件不存在: ${binaryFile.absolutePath}")
+                    val msg = "二进制文件不存在: ${binaryFile.absolutePath}"
+                    Log.e(TAG, msg)
+                    LogManager.appendLog(this, "[ERROR] $msg")
                     updateNotification("错误: 找不到 OpenList 二进制文件")
                     return@Thread
                 }
 
+                LogManager.appendLog(this, "找到二进制文件: ${binaryFile.absolutePath}")
+                LogManager.appendLog(this, "文件大小: ${binaryFile.length() / 1024 / 1024} MB")
                 Log.i(TAG, "找到二进制文件: ${binaryFile.absolutePath}")
-                Log.i(TAG, "文件大小: ${binaryFile.length() / 1024 / 1024} MB")
 
-                // 2. 准备数据目录
                 val dataDir = File(filesDir, "openlist-data")
-                if (!dataDir.exists()) {
-                    dataDir.mkdirs()
-                }
+                if (!dataDir.exists()) dataDir.mkdirs()
 
-                // 3. 准备配置文件目录
-                val configDir = File(filesDir, "openlist-data")
-                if (!configDir.exists()) {
-                    configDir.mkdirs()
-                }
-
-                // 4. 设置环境变量
                 val env = System.getenv().toMutableMap()
                 env["GOGC"] = "50"
                 env["GOMEMLIMIT"] = "256MiB"
 
-                // 5. 启动进程
                 val pb = ProcessBuilder(
                     binaryFile.absolutePath,
                     "server",
@@ -165,27 +146,34 @@ class OpenListService : Service() {
                     environment().putAll(env)
                 }
 
+                LogManager.appendLog(this, "正在启动 OpenList 服务器...")
                 process = pb.start()
                 isRunning = true
                 updateNotification("OpenList 服务器运行中 (端口 5244)")
-
+                LogManager.appendLog(this, "OpenList 服务器进程已启动 (PID: ${process?.pid()})")
                 Log.i(TAG, "OpenList 服务器已启动")
 
-                // 6. 读取输出日志
                 BufferedReader(InputStreamReader(process!!.inputStream)).use { reader ->
                     var line: String?
                     while (reader.readLine().also { line = it } != null) {
                         Log.d(TAG, ">>> $line")
+                        LogManager.appendLog(this, line ?: "")
                     }
                 }
 
                 process?.waitFor()
-                Log.i(TAG, "OpenList 服务器已退出 (exit code: ${process?.exitValue()})")
+                val exitCode = process?.exitValue() ?: -1
+                val msg = "OpenList 服务器已退出 (exit code: $exitCode)"
+                Log.i(TAG, msg)
+                LogManager.appendLog(this, msg)
                 isRunning = false
                 updateNotification("OpenList 服务器已停止")
 
             } catch (e: Exception) {
-                Log.e(TAG, "服务器启动失败: ${e.message}", e)
+                val msg = "服务器启动失败: ${e.message}"
+                Log.e(TAG, msg, e)
+                LogManager.appendLog(this, "[ERROR] $msg")
+                LogManager.appendLog(this, "[ERROR] ${e.stackTraceToString()}")
                 updateNotification("错误: ${e.message}")
                 isRunning = false
             }
@@ -198,15 +186,17 @@ class OpenListService : Service() {
     private fun stopServer() {
         process?.let {
             try {
+                LogManager.appendLog(this, "正在停止 OpenList 服务器...")
                 Log.i(TAG, "正在停止 OpenList 服务器...")
                 it.destroy()
-                // 等待 3 秒优雅关闭
                 val exited = it.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
                 if (!exited) {
+                    LogManager.appendLog(this, "服务器未在 3 秒内退出，强制终止")
                     Log.w(TAG, "服务器未在 3 秒内退出，强制终止")
                     it.destroyForcibly()
                 }
             } catch (e: Exception) {
+                LogManager.appendLog(this, "[ERROR] 停止服务器时出错: ${e.message}")
                 Log.e(TAG, "停止服务器时出错: ${e.message}", e)
             }
         }
@@ -222,7 +212,7 @@ class OpenListService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "OpenList::ServerWakeLock"
         ).apply {
-            acquire(30 * 60 * 1000L) // 30 分钟，服务会续期
+            acquire(30 * 60 * 1000L)
         }
     }
 

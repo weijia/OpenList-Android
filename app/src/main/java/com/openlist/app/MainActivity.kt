@@ -99,6 +99,13 @@ fun MainScreen() {
                         onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
+                            text = { Text("查看日志") },
+                            onClick = {
+                                menuExpanded = false
+                                context.startActivity(Intent(context, LogViewerActivity::class.java))
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("账号管理") },
                             onClick = {
                                 menuExpanded = false

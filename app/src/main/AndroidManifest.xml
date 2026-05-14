@@ -43,6 +43,12 @@
             android:theme="@style/Theme.OpenListApp" />
 
         <activity
+            android:name=".LogViewerActivity"
+            android:label="服务日志"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.OpenListApp" />
+
+        <activity
             android:name=".AccountManagerActivity"
             android:label="@string/account_manager_title"
             android:parentActivityName=".MainActivity"
