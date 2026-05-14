@@ -16,6 +16,9 @@ on:
         required: false
         default: 'beta'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -106,5 +109,3 @@ jobs:
             app/build/outputs/apk/release/*.apk
           draft: false
           prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
