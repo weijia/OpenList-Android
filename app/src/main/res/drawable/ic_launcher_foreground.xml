@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Folder icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,28
+                          L44,28
+                          L48,24
+                          L84,24
+                          Q88,24 88,28
+                          L88,80
+                          Q88,84 84,84
+                          L24,84
+                          Q20,84 20,80
+                          L20,32
+                          Q20,28 24,28
+                          Z"/>
+    <!-- List lines -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M30,44 L78,44 L78,48 L30,48 Z"/>
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M30,54 L78,54 L78,58 L30,58 Z"/>
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M30,64 L60,64 L60,68 L30,68 Z"/>
+</vector>
