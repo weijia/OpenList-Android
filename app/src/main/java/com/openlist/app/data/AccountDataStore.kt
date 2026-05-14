@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 val Context.accountDataStore: DataStore<Preferences> by preferencesDataStore(name = "accounts")
@@ -29,6 +30,7 @@ class AccountDataStore(private val context: Context) {
     }
 
     private val json = Json { ignoreUnknownKeys = true }
+    private val listSerializer = ListSerializer(AccountData.serializer())
 
     suspend fun saveAccount(account: AccountData) {
         context.accountDataStore.edit { preferences ->
@@ -41,7 +43,7 @@ class AccountDataStore(private val context: Context) {
                 currentAccounts.add(account)
             }
             
-            preferences[Keys.ACCOUNTS] = json.encodeToString<List<AccountData>>(currentAccounts.toList())
+            preferences[Keys.ACCOUNTS] = json.encodeToString(listSerializer, currentAccounts.toList())
         }
     }
 
@@ -49,7 +51,7 @@ class AccountDataStore(private val context: Context) {
         context.accountDataStore.edit { preferences ->
             val currentAccounts = getAccounts().toMutableList()
             currentAccounts.removeAll { it.id == accountId }
-            preferences[Keys.ACCOUNTS] = json.encodeToString<List<AccountData>>(currentAccounts.toList())
+            preferences[Keys.ACCOUNTS] = json.encodeToString(listSerializer, currentAccounts.toList())
         }
     }
 
@@ -57,9 +59,9 @@ class AccountDataStore(private val context: Context) {
         return context.accountDataStore.data.map { preferences ->
             val accountsJson = preferences[Keys.ACCOUNTS] ?: "[]"
             try {
-                json.decodeFromString<List<AccountData>>(accountsJson)
+                json.decodeFromString(listSerializer, accountsJson)
             } catch (e: Exception) {
-                emptyList<AccountData>()
+                emptyList()
             }
         }.first()
     }
