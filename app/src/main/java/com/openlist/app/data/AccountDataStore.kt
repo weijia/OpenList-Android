@@ -9,8 +9,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 val Context.accountDataStore: DataStore<Preferences> by preferencesDataStore(name = "accounts")
@@ -59,9 +57,9 @@ class AccountDataStore(private val context: Context) {
         return context.accountDataStore.data.map { preferences ->
             val accountsJson = preferences[Keys.ACCOUNTS] ?: "[]"
             try {
-                json.decodeFromString(accountsJson)
+                json.decodeFromString<List<AccountData>>(accountsJson)
             } catch (e: Exception) {
-                emptyList()
+                emptyList<AccountData>()
             }
         }.first()
     }
