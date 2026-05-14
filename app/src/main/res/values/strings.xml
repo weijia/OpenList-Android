@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">OpenList</string>
+    <string name="settings_title">设置</string>
+    <string name="account_manager_title">账号管理</string>
+</resources>

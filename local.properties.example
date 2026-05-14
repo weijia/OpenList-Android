@@ -1,0 +1,16 @@
+# 本地配置文件示例
+# 复制此文件为 local.properties 并修改为你的 SDK 路径
+
+# macOS 示例
+# sdk.dir=/Users/username/Library/Android/sdk
+
+# Linux 示例
+# sdk.dir=/home/username/Android/Sdk
+
+# Windows 示例（注意使用双反斜杠或正斜杠）
+# sdk.dir=C:\\Users\\username\\AppData\\Local\\Android\\Sdk
+# 或
+# sdk.dir=C:/Users/username/AppData/Local/Android/Sdk
+
+# 自动检测（如果在 CI 环境中）
+sdk.dir=${ANDROID_HOME}
