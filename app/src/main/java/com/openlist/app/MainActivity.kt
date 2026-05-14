@@ -302,7 +302,32 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(onClick = {
-                    webView?.let { waitForServerThenLoad(it) }
+                    waitJob?.cancel()
+                    isWaitingServer = true
+                    pageLoaded = false
+                    loadError = false
+                    waitJob = scope.launch {
+                        var attempts = 0
+                        val maxAttempts = 30
+                        while (attempts < maxAttempts) {
+                            try {
+                                val conn = URL(serverUrl).openConnection() as HttpURLConnection
+                                conn.connectTimeout = 1000
+                                conn.readTimeout = 1000
+                                conn.requestMethod = "HEAD"
+                                val code = conn.responseCode
+                                conn.disconnect()
+                                if (code in 200..399) {
+                                    isWaitingServer = false
+                                    return@launch
+                                }
+                            } catch (_: Exception) {
+                            }
+                            attempts++
+                            delay(1000)
+                        }
+                        isWaitingServer = false
+                    }
                 }) {
                     Text("重新加载")
                 }
