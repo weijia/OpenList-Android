@@ -11,14 +11,20 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -28,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -44,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.openlist.app.service.OpenListService
@@ -53,6 +61,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class LoadState { LOADING, LOADED, ERROR }
+
+private const val DEFAULT_URL = "http://127.0.0.1:5244"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +91,9 @@ fun MainScreen() {
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var currentUrl by remember { mutableStateOf(DEFAULT_URL) }
+    var urlInput by remember { mutableStateOf(DEFAULT_URL) }
+    var canGoBack by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -93,7 +106,7 @@ fun MainScreen() {
                 ),
                 actions = {
                     IconButton(onClick = { webView?.reload() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新页面")
+                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
                     }
                     IconButton(onClick = {
                         context.startActivity(Intent(context, SettingsActivity::class.java))
@@ -152,21 +165,94 @@ fun MainScreen() {
             )
         }
     ) { innerPadding ->
-        OpenListWebView(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            onWebViewCreated = { wv -> webView = wv }
-        )
+                .padding(innerPadding)
+        ) {
+            // ─── 地址栏 ─────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 返回按钮
+                IconButton(
+                    onClick = {
+                        if (webView?.canGoBack() == true) {
+                            webView?.goBack()
+                        }
+                    },
+                    enabled = canGoBack
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                }
+
+                // 地址输入框
+                OutlinedTextField(
+                    value = urlInput,
+                    onValueChange = { urlInput = it },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("输入网址...", fontSize = androidx.compose.ui.unit.sp(13)) },
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.sp(13)),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = {
+                        var url = urlInput.trim()
+                        if (url.isNotBlank()) {
+                            // 自动补全 http://
+                            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                                url = "http://$url"
+                                urlInput = url
+                            }
+                            currentUrl = url
+                            webView?.loadUrl(url)
+                        }
+                    })
+                )
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // 前往按钮
+                IconButton(onClick = {
+                    var url = urlInput.trim()
+                    if (url.isNotBlank()) {
+                        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                            url = "http://$url"
+                            urlInput = url
+                        }
+                        currentUrl = url
+                        webView?.loadUrl(url)
+                    }
+                }) {
+                    Icon(Icons.Default.Search, contentDescription = "前往")
+                }
+            }
+
+            // ─── WebView ─────────────────────────────────────
+            OpenListWebView(
+                modifier = Modifier.fillMaxSize(),
+                currentUrl = currentUrl,
+                onUrlChanged = { url ->
+                    currentUrl = url
+                    urlInput = url
+                },
+                onCanGoBackChanged = { canGoBack = it },
+                onWebViewCreated = { wv -> webView = wv }
+            )
+        }
     }
 }
 
 @Composable
 fun OpenListWebView(
     modifier: Modifier = Modifier,
+    currentUrl: String = DEFAULT_URL,
+    onUrlChanged: (String) -> Unit = {},
+    onCanGoBackChanged: (Boolean) -> Unit = {},
     onWebViewCreated: (WebView) -> Unit = {}
 ) {
-    val serverUrl = "http://127.0.0.1:5244"
     val scope = rememberCoroutineScope()
     var loadState by remember { mutableStateOf(LoadState.LOADING) }
     var retryCount by remember { mutableIntStateOf(0) }
@@ -179,7 +265,7 @@ fun OpenListWebView(
             loadState = LoadState.LOADING
             delay(3000)
             retryCount++
-            webViewRef?.post { webViewRef?.loadUrl(serverUrl) }
+            webViewRef?.post { webViewRef?.loadUrl(currentUrl) }
         }
     }
 
@@ -214,18 +300,14 @@ fun OpenListWebView(
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        // 关键修复：禁用宽视口，使用设备宽度
                         useWideViewPort = false
                         loadWithOverviewMode = false
                         setSupportZoom(false)
                         builtInZoomControls = false
                         displayZoomControls = false
-                        
-                        // 设置初始缩放为 100%
                         setInitialScale(100)
                     }
 
-                    // 设置滚动条样式
                     isVerticalScrollBarEnabled = true
                     isHorizontalScrollBarEnabled = false
                     scrollBarStyle = WebView.SCROLLBARS_INSIDE_OVERLAY
@@ -242,11 +324,12 @@ fun OpenListWebView(
                         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                             super.onPageStarted(view, url, favicon)
                             loadState = LoadState.LOADING
+                            url?.let { onUrlChanged(it) }
+                            onCanGoBackChanged(view?.canGoBack() == true)
                         }
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 延迟滚动到顶部，确保页面渲染完成
                             view?.postDelayed({
                                 view.scrollTo(0, 0)
                             }, 100)
@@ -254,6 +337,7 @@ fun OpenListWebView(
                                 loadState = LoadState.LOADED
                                 retryCount = 0
                             }
+                            onCanGoBackChanged(view?.canGoBack() == true)
                         }
 
                         override fun onReceivedError(
@@ -290,7 +374,7 @@ fun OpenListWebView(
                     }
 
                     onWebViewCreated(this)
-                    loadUrl(serverUrl)
+                    loadUrl(currentUrl)
                 }
             },
             modifier = Modifier.weight(1f)
@@ -313,7 +397,7 @@ fun OpenListWebView(
                 OutlinedButton(onClick = {
                     retryJob?.cancel()
                     retryCount++
-                    webViewRef?.loadUrl(serverUrl)
+                    webViewRef?.loadUrl(currentUrl)
                     loadState = LoadState.LOADING
                 }) {
                     Text("立即重试")
