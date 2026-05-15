@@ -281,7 +281,7 @@ fun MainScreen() {
 
             // ─── WebView ─────────────────────────────────────
             OpenListWebView(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.weight(1f),
                 currentUrl = currentUrl,
                 onUrlChanged = { url ->
                     currentUrl = url
