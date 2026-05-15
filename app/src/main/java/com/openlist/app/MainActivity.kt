@@ -378,29 +378,13 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 修复 OpenList 前端布局问题：
-                            // 1. 登录页使用 h="100vh" + Center 垂直居中，WebView 中 100vh 计算不准确
-                            // 2. viewport meta 设置了 maximum-scale=1, user-scalable=no
-                            // 3. 需要让页面从顶部开始显示，不被推到可视区域外
+                            // 最小干预：只修改 viewport 允许缩放，不改变页面布局
                             view?.evaluateJavascript("""
                                 (function() {
-                                    // 修复 viewport meta，允许缩放
                                     var vp = document.querySelector('meta[name="viewport"]');
                                     if (vp) {
                                         vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
                                     }
-                                    // 修复 100vh 问题：强制 html/body 高度为 auto
-                                    var s = document.createElement('style');
-                                    s.textContent = 
-                                        'html, body { height: auto !important; min-height: auto !important; overflow-y: auto !important; }' +
-                                        'div[style*="100vh"], [class*="100vh"] { height: auto !important; min-height: auto !important; }' +
-                                        // 强制所有元素从顶部开始
-                                        '* { transform: none !important; }';
-                                    document.head.appendChild(s);
-                                    // 滚动到最顶部
-                                    window.scrollTo(0, 0);
-                                    document.documentElement.scrollTop = 0;
-                                    document.body.scrollTop = 0;
                                 })();
                             """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
