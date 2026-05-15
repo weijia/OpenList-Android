@@ -202,7 +202,7 @@ fun OpenListWebView(
             factory = { context ->
                 WebView(context).apply {
                     webViewRef = this
-                    setBackgroundColor(Color.TRANSPARENT)
+                    setBackgroundColor(Color.WHITE)
 
                     settings.apply {
                         javaScriptEnabled = true
@@ -214,12 +214,21 @@ fun OpenListWebView(
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        // 修复页面显示不全的问题
-                        useWideViewPort = true
+                        // 关键修复：禁用宽视口，使用设备宽度
+                        useWideViewPort = false
                         loadWithOverviewMode = false
                         setSupportZoom(false)
                         builtInZoomControls = false
+                        displayZoomControls = false
+                        
+                        // 设置初始缩放为 100%
+                        setInitialScale(100)
                     }
+
+                    // 设置滚动条样式
+                    isVerticalScrollBarEnabled = true
+                    isHorizontalScrollBarEnabled = false
+                    scrollBarStyle = WebView.SCROLLBARS_INSIDE_OVERLAY
 
                     webChromeClient = WebChromeClient()
 
@@ -237,8 +246,10 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 滚动到顶部
-                            view?.scrollTo(0, 0)
+                            // 延迟滚动到顶部，确保页面渲染完成
+                            view?.postDelayed({
+                                view.scrollTo(0, 0)
+                            }, 100)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
@@ -251,7 +262,7 @@ fun OpenListWebView(
                             error: android.webkit.WebResourceError?
                         ) {
                             view?.loadData(
-                                "<html><body style='background:transparent;'></body></html>",
+                                "<html><body style='background:white;'></body></html>",
                                 "text/html",
                                 "UTF-8"
                             )
@@ -267,7 +278,7 @@ fun OpenListWebView(
                             errorResponse: android.webkit.WebResourceResponse?
                         ) {
                             view?.loadData(
-                                "<html><body style='background:transparent;'></body></html>",
+                                "<html><body style='background:white;'></body></html>",
                                 "text/html",
                                 "UTF-8"
                             )
