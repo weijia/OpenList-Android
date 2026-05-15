@@ -216,10 +216,9 @@ fun OpenListWebView(
                         
                         // 修复页面显示不全的问题
                         useWideViewPort = true
-                        loadWithOverviewMode = true
-                        setSupportZoom(true)
-                        builtInZoomControls = true
-                        displayZoomControls = false
+                        loadWithOverviewMode = false
+                        setSupportZoom(false)
+                        builtInZoomControls = false
                     }
 
                     webChromeClient = WebChromeClient()
@@ -238,25 +237,8 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 页面加载完成后，注入 JS 确保内容正确缩放
-                            view?.evaluateJavascript(
-                                """
-                                (function() {
-                                    var meta = document.querySelector('meta[name="viewport"]');
-                                    if (!meta) {
-                                        meta = document.createElement('meta');
-                                        meta.name = 'viewport';
-                                        document.head.appendChild(meta);
-                                    }
-                                    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-                                    document.body.style.margin = '0';
-                                    document.body.style.padding = '0';
-                                    document.body.style.width = '100%';
-                                    document.body.style.minHeight = '100vh';
-                                })();
-                                """.trimIndent(),
-                                null
-                            )
+                            // 滚动到顶部
+                            view?.scrollTo(0, 0)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
