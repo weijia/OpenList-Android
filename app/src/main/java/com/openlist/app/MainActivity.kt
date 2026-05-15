@@ -213,6 +213,13 @@ fun OpenListWebView(
                         allowFileAccess = true
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        
+                        // 修复页面显示不全的问题
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        setSupportZoom(true)
+                        builtInZoomControls = true
+                        displayZoomControls = false
                     }
 
                     webChromeClient = WebChromeClient()
@@ -231,7 +238,25 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 只有成功加载才标记为 LOADED
+                            // 页面加载完成后，注入 JS 确保内容正确缩放
+                            view?.evaluateJavascript(
+                                """
+                                (function() {
+                                    var meta = document.querySelector('meta[name="viewport"]');
+                                    if (!meta) {
+                                        meta = document.createElement('meta');
+                                        meta.name = 'viewport';
+                                        document.head.appendChild(meta);
+                                    }
+                                    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                                    document.body.style.margin = '0';
+                                    document.body.style.padding = '0';
+                                    document.body.style.width = '100%';
+                                    document.body.style.minHeight = '100vh';
+                                })();
+                                """.trimIndent(),
+                                null
+                            )
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
@@ -243,7 +268,6 @@ fun OpenListWebView(
                             request: WebResourceRequest?,
                             error: android.webkit.WebResourceError?
                         ) {
-                            // 隐藏 WebView 默认错误页面，显示空白
                             view?.loadData(
                                 "<html><body style='background:transparent;'></body></html>",
                                 "text/html",
