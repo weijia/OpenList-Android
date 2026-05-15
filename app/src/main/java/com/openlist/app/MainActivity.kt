@@ -209,28 +209,27 @@ fun OpenListWebView(
                         domStorageEnabled = true
                         databaseEnabled = true
                         cacheMode = WebSettings.LOAD_DEFAULT
-                        // 使用标准移动端 User-Agent
-                        userAgentString = "${WebSettings.getDefaultUserAgent(context)} OpenListApp/1.0"
                         allowFileAccess = true
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        // 关键：禁用宽视口，使用设备宽度，确保页面从顶部开始显示
-                        useWideViewPort = false
-                        loadWithOverviewMode = false
+                        // 关键：使用与 Chrome 相同的默认设置
+                        // 不要覆盖 userAgentString，使用系统默认值
+                        // 这样 WebView 会表现得像普通浏览器
                         
-                        // 启用缩放
+                        // 禁用缩放控制，让页面自己处理
                         setSupportZoom(true)
                         builtInZoomControls = true
-                        displayZoomControls = true
+                        displayZoomControls = false
                         
-                        // 设置文本缩放
-                        textZoom = 100
+                        // 使用宽视口模式（Chrome 默认行为）
+                        useWideViewPort = true
+                        loadWithOverviewMode = false
                     }
 
                     // 滚动条
                     isVerticalScrollBarEnabled = true
-                    isHorizontalScrollBarEnabled = true
+                    isHorizontalScrollBarEnabled = false
 
                     webChromeClient = WebChromeClient()
 
