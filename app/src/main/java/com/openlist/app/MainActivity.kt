@@ -10,7 +10,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -153,17 +152,12 @@ fun MainScreen() {
             )
         }
     ) { innerPadding ->
-        // 直接使用 innerPadding，确保 WebView 不会被 TopAppBar 遮挡
-        Box(
+        OpenListWebView(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            OpenListWebView(
-                modifier = Modifier.fillMaxSize(),
-                onWebViewCreated = { wv -> webView = wv }
-            )
-        }
+                .padding(innerPadding),
+            onWebViewCreated = { wv -> webView = wv }
+        )
     }
 }
 
@@ -215,23 +209,28 @@ fun OpenListWebView(
                         domStorageEnabled = true
                         databaseEnabled = true
                         cacheMode = WebSettings.LOAD_DEFAULT
-                        // 使用标准移动端 User-Agent，确保服务器返回手机版页面
+                        // 使用标准移动端 User-Agent
                         userAgentString = "${WebSettings.getDefaultUserAgent(context)} OpenListApp/1.0"
                         allowFileAccess = true
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        // 启用缩放控制，让用户可以像普通网页一样缩放
+                        // 关键：禁用宽视口，使用设备宽度，确保页面从顶部开始显示
+                        useWideViewPort = false
+                        loadWithOverviewMode = false
+                        
+                        // 启用缩放
                         setSupportZoom(true)
                         builtInZoomControls = true
                         displayZoomControls = true
-                        useWideViewPort = true
-                        loadWithOverviewMode = false
+                        
+                        // 设置文本缩放
+                        textZoom = 100
                     }
 
-                    // 设置滚动条
+                    // 滚动条
                     isVerticalScrollBarEnabled = true
-                    isHorizontalScrollBarEnabled = false
+                    isHorizontalScrollBarEnabled = true
 
                     webChromeClient = WebChromeClient()
 
