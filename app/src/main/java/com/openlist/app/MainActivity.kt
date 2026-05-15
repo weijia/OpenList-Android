@@ -227,9 +227,11 @@ fun OpenListWebView(
                         loadWithOverviewMode = false
                     }
 
-                    // 滚动条
+                    // 滚动条设置 - 确保始终显示
                     isVerticalScrollBarEnabled = true
                     isHorizontalScrollBarEnabled = false
+                    scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
+                    overScrollMode = android.view.View.OVER_SCROLL_ALWAYS
 
                     webChromeClient = WebChromeClient()
 
