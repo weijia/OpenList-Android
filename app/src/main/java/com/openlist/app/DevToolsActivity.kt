@@ -246,8 +246,9 @@ fun DevToolsScreen() {
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
-                val decodedSource = pageSource.take(1000)
-                    .replace("\\u003c", "<").replace("\\u003e", ">")
+                val decodedSource = pageSource.take(2000)
+                    .replace("\\u003C", "<").replace("\\u003c", "<")
+                    .replace("\\u003E", ">").replace("\\u003e", ">")
                     .replace("\\u0026", "&").replace("\\n", "\n")
                     .replace("\\\"", "\"").replace("\\/", "/")
                 SelectionContainer {
