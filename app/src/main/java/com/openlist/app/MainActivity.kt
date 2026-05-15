@@ -159,9 +159,8 @@ fun MainScreen() {
                         context.startActivity(Intent(context, LogViewerActivity::class.java))
                     }) {
                         Icon(
-                            android.R.drawable.ic_menu_info_details,
-                            contentDescription = "日志",
-                            tint = MaterialTheme.colorScheme.onSurface
+                            painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_info_details),
+                            contentDescription = "日志"
                         )
                     }
 
@@ -170,9 +169,8 @@ fun MainScreen() {
                         context.startActivity(Intent(context, AccountManagerActivity::class.java))
                     }) {
                         Icon(
-                            android.R.drawable.ic_menu_manage,
-                            contentDescription = "账号",
-                            tint = MaterialTheme.colorScheme.onSurface
+                            painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_manage),
+                            contentDescription = "账号"
                         )
                     }
 
