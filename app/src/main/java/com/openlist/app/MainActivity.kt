@@ -300,12 +300,13 @@ fun OpenListWebView(
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        useWideViewPort = false
-                        loadWithOverviewMode = false
-                        setSupportZoom(false)
-                        builtInZoomControls = false
+                        // 修复页面显示：启用宽视口+概览模式，让页面自动缩放适应屏幕
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+                        setSupportZoom(true)
+                        builtInZoomControls = true
                         displayZoomControls = false
-                        setInitialScale(100)
+                        // 移除 setInitialScale，让系统自动计算缩放
                     }
 
                     isVerticalScrollBarEnabled = true
@@ -330,9 +331,7 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            view?.postDelayed({
-                                view.scrollTo(0, 0)
-                            }, 100)
+                            // 不再强制 scrollTo(0,0)，让 loadWithOverviewMode 处理缩放和位置
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
