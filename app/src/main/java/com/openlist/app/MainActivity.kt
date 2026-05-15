@@ -214,6 +214,13 @@ fun MainScreen() {
                                     context.startActivity(Intent(context, SettingsActivity::class.java))
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("开发者工具") },
+                                onClick = {
+                                    menuExpanded = false
+                                    context.startActivity(Intent(context, DevToolsActivity::class.java))
+                                }
+                            )
                         }
                     }
                 }

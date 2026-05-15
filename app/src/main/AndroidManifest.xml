@@ -54,6 +54,12 @@
             android:parentActivityName=".MainActivity"
             android:theme="@style/Theme.OpenListApp" />
 
+        <activity
+            android:name=".DevToolsActivity"
+            android:label="开发者工具"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.OpenListApp" />
+
         <service
             android:name=".service.OpenListService"
             android:enabled="true"
