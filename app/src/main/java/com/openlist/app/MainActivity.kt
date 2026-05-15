@@ -196,8 +196,8 @@ fun MainScreen() {
                     onValueChange = { urlInput = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    placeholder = { Text("输入网址...", fontSize = sp(13)) },
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = sp(13)),
+                    placeholder = { Text("输入网址...") },
+                    textStyle = androidx.compose.ui.text.TextStyle(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                     keyboardActions = KeyboardActions(onGo = {
                         var url = urlInput.trim()
