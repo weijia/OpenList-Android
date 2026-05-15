@@ -10,18 +10,17 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +52,8 @@ import com.openlist.app.ui.theme.OpenListAppTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private enum class LoadState { LOADING, LOADED, ERROR }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,30 +173,23 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
     var loadState by remember { mutableStateOf(LoadState.LOADING) }
     var retryCount by remember { mutableIntStateOf(0) }
     var retryJob by remember { mutableStateOf<Job?>(null) }
-
-    enum class LoadState { LOADING, LOADED, ERROR }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     fun scheduleRetry() {
         retryJob?.cancel()
         retryJob = scope.launch {
             loadState = LoadState.LOADING
-            delay(3000) // 等 3 秒后重试
+            delay(3000)
             retryCount++
             webViewRef?.post { webViewRef?.loadUrl(serverUrl) }
         }
     }
 
-    // 用一个 ref 来持有 WebView 引用，供重试使用
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
-
     DisposableEffect(Unit) {
-        onDispose {
-            retryJob?.cancel()
-        }
+        onDispose { retryJob?.cancel() }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 顶部加载进度条（不遮挡内容）
         if (loadState == LoadState.LOADING) {
             LinearProgressIndicator(
                 modifier = Modifier
@@ -204,7 +198,6 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
             )
         }
 
-        // WebView 占满剩余空间
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
@@ -253,15 +246,12 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
                     }
 
                     onWebViewCreated(this)
-
-                    // 首次加载
                     loadUrl(serverUrl)
                 }
             },
             modifier = Modifier.weight(1f)
         )
 
-        // 底部错误提示栏（不遮挡 WebView 内容）
         if (loadState == LoadState.ERROR) {
             Column(
                 modifier = Modifier
