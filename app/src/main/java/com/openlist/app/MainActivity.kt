@@ -10,6 +10,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -152,12 +153,17 @@ fun MainScreen() {
             )
         }
     ) { innerPadding ->
-        OpenListWebView(
+        // 直接使用 innerPadding，确保 WebView 不会被 TopAppBar 遮挡
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            onWebViewCreated = { wv -> webView = wv }
-        )
+                .padding(innerPadding)
+        ) {
+            OpenListWebView(
+                modifier = Modifier.fillMaxSize(),
+                onWebViewCreated = { wv -> webView = wv }
+            )
+        }
     }
 }
 
@@ -215,21 +221,17 @@ fun OpenListWebView(
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        // 关键修复：禁用宽视口，使用设备宽度
-                        useWideViewPort = false
+                        // 启用缩放控制，让用户可以像普通网页一样缩放
+                        setSupportZoom(true)
+                        builtInZoomControls = true
+                        displayZoomControls = true
+                        useWideViewPort = true
                         loadWithOverviewMode = false
-                        setSupportZoom(false)
-                        builtInZoomControls = false
-                        displayZoomControls = false
-                        
-                        // 设置初始缩放为 100%
-                        setInitialScale(100)
                     }
 
-                    // 设置滚动条样式
+                    // 设置滚动条
                     isVerticalScrollBarEnabled = true
                     isHorizontalScrollBarEnabled = false
-                    scrollBarStyle = WebView.SCROLLBARS_INSIDE_OVERLAY
 
                     webChromeClient = WebChromeClient()
 
@@ -247,10 +249,6 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 延迟滚动到顶部，确保页面渲染完成
-                            view?.postDelayed({
-                                view.scrollTo(0, 0)
-                            }, 100)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
