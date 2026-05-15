@@ -2,6 +2,7 @@ package com.openlist.app
 
 import android.content.Intent
 import android.os.Bundle
+import android.graphics.Color
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -9,8 +10,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -153,20 +152,20 @@ fun MainScreen() {
             )
         }
     ) { innerPadding ->
-        Box(
+        OpenListWebView(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            OpenListWebView(
-                onWebViewCreated = { wv -> webView = wv }
-            )
-        }
+                .padding(innerPadding),
+            onWebViewCreated = { wv -> webView = wv }
+        )
     }
 }
 
 @Composable
-fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
+fun OpenListWebView(
+    modifier: Modifier = Modifier,
+    onWebViewCreated: (WebView) -> Unit = {}
+) {
     val serverUrl = "http://127.0.0.1:5244"
     val scope = rememberCoroutineScope()
     var loadState by remember { mutableStateOf(LoadState.LOADING) }
@@ -188,7 +187,8 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
         onDispose { retryJob?.cancel() }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = modifier) {
+        // 顶部加载进度条
         if (loadState == LoadState.LOADING) {
             LinearProgressIndicator(
                 modifier = Modifier
@@ -197,10 +197,13 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
             )
         }
 
+        // WebView 填充剩余空间
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
                     webViewRef = this
+                    setBackgroundColor(Color.TRANSPARENT)
+
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -215,6 +218,7 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
                     webChromeClient = WebChromeClient()
 
                     webViewClient = object : WebViewClient() {
+
                         override fun shouldOverrideUrlLoading(
                             view: WebView?,
                             request: WebResourceRequest?
@@ -227,8 +231,11 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            loadState = LoadState.LOADED
-                            retryCount = 0
+                            // 只有成功加载才标记为 LOADED
+                            if (loadState == LoadState.LOADING) {
+                                loadState = LoadState.LOADED
+                                retryCount = 0
+                            }
                         }
 
                         override fun onReceivedError(
@@ -236,7 +243,28 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
                             request: WebResourceRequest?,
                             error: android.webkit.WebResourceError?
                         ) {
-                            super.onReceivedError(view, request, error)
+                            // 隐藏 WebView 默认错误页面，显示空白
+                            view?.loadData(
+                                "<html><body style='background:transparent;'></body></html>",
+                                "text/html",
+                                "UTF-8"
+                            )
+                            if (request?.isForMainFrame == true && retryCount < 10) {
+                                loadState = LoadState.ERROR
+                                scheduleRetry()
+                            }
+                        }
+
+                        override fun onReceivedHttpError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            errorResponse: android.webkit.WebResourceResponse?
+                        ) {
+                            view?.loadData(
+                                "<html><body style='background:transparent;'></body></html>",
+                                "text/html",
+                                "UTF-8"
+                            )
                             if (request?.isForMainFrame == true && retryCount < 10) {
                                 loadState = LoadState.ERROR
                                 scheduleRetry()
@@ -251,6 +279,7 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
             modifier = Modifier.weight(1f)
         )
 
+        // 底部错误提示栏
         if (loadState == LoadState.ERROR) {
             Column(
                 modifier = Modifier
