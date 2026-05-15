@@ -371,6 +371,16 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
+                            // 修复 OpenList 前端 100vh 布局问题：
+                            // 登录页使用 h="100vh" + Center 垂直居中，
+                            // WebView 中 100vh 计算不准确导致内容被推出可视区域
+                            view?.evaluateJavascript("""
+                                (function() {
+                                    var s = document.createElement('style');
+                                    s.textContent = 'html,body{height:auto!important;min-height:100vh;}';
+                                    document.head.appendChild(s);
+                                })();
+                            """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
