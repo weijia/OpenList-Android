@@ -11,7 +11,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +27,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -37,6 +37,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,8 +53,6 @@ import com.openlist.app.ui.theme.OpenListAppTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -169,49 +168,47 @@ fun MainScreen() {
 @Composable
 fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
     val serverUrl = "http://127.0.0.1:5244"
-    var pageLoaded by remember { mutableStateOf(false) }
-    var loadError by remember { mutableStateOf(false) }
-    var isWaitingServer by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
-    var waitJob by remember { mutableStateOf<Job?>(null) }
+    var loadState by remember { mutableStateOf(LoadState.LOADING) }
+    var retryCount by remember { mutableIntStateOf(0) }
+    var retryJob by remember { mutableStateOf<Job?>(null) }
 
-    fun waitForServerThenLoad(wv: WebView) {
-        waitJob?.cancel()
-        waitJob = scope.launch {
-            isWaitingServer = true
-            pageLoaded = false
-            loadError = false
-            var attempts = 0
-            val maxAttempts = 30
-            while (attempts < maxAttempts) {
-                try {
-                    val conn = URL(serverUrl).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 1000
-                    conn.readTimeout = 1000
-                    conn.requestMethod = "HEAD"
-                    val code = conn.responseCode
-                    conn.disconnect()
-                    if (code in 200..399) {
-                        isWaitingServer = false
-                        wv.post { wv.loadUrl(serverUrl) }
-                        return@launch
-                    }
-                } catch (_: Exception) {
-                    // 服务器还没准备好
-                }
-                attempts++
-                delay(1000)
-            }
-            // 超时，仍然尝试加载
-            isWaitingServer = false
-            wv.post { wv.loadUrl(serverUrl) }
+    enum class LoadState { LOADING, LOADED, ERROR }
+
+    fun scheduleRetry() {
+        retryJob?.cancel()
+        retryJob = scope.launch {
+            loadState = LoadState.LOADING
+            delay(3000) // 等 3 秒后重试
+            retryCount++
+            webViewRef?.post { webViewRef?.loadUrl(serverUrl) }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // 用一个 ref 来持有 WebView 引用，供重试使用
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            retryJob?.cancel()
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // 顶部加载进度条（不遮挡内容）
+        if (loadState == LoadState.LOADING) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+            )
+        }
+
+        // WebView 占满剩余空间
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
+                    webViewRef = this
                     settings.apply {
                         javaScriptEnabled = true
                         domStorageEnabled = true
@@ -220,6 +217,7 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
                         userAgentString = "OpenListApp/1.0"
                         allowFileAccess = true
                         allowContentAccess = true
+                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     }
 
                     webChromeClient = WebChromeClient()
@@ -230,114 +228,62 @@ fun OpenListWebView(onWebViewCreated: (WebView) -> Unit = {}) {
                             request: WebResourceRequest?
                         ): Boolean = false
 
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            loadState = LoadState.LOADING
+                        }
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            pageLoaded = true
-                            loadError = false
+                            loadState = LoadState.LOADED
+                            retryCount = 0
                         }
 
                         override fun onReceivedError(
                             view: WebView?,
-                            request: android.webkit.WebResourceRequest?,
+                            request: WebResourceRequest?,
                             error: android.webkit.WebResourceError?
                         ) {
                             super.onReceivedError(view, request, error)
-                            if (request?.isForMainFrame == true) {
-                                loadError = true
+                            if (request?.isForMainFrame == true && retryCount < 10) {
+                                loadState = LoadState.ERROR
+                                scheduleRetry()
                             }
                         }
                     }
 
                     onWebViewCreated(this)
-                    // WebView 创建后，等待服务器就绪再加载
-                    waitForServerThenLoad(this)
+
+                    // 首次加载
+                    loadUrl(serverUrl)
                 }
             },
-            update = { wv ->
-                // 外部调用 reload 时，直接加载
-            },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.weight(1f)
         )
 
-        // 等待服务器 / 加载失败 覆盖层
-        if (isWaitingServer || (!pageLoaded && !loadError)) {
+        // 底部错误提示栏（不遮挡 WebView 内容）
+        if (loadState == LoadState.ERROR) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = if (isWaitingServer) "等待服务器启动..." else "正在加载...",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "服务器正在后台启动，请稍候",
+                    text = "服务器未就绪，正在重试... ($retryCount/10)",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else if (loadError) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "页面加载失败",
-                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.error
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "服务器可能尚未启动完成",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 OutlinedButton(onClick = {
-                    waitJob?.cancel()
-                    isWaitingServer = true
-                    pageLoaded = false
-                    loadError = false
-                    waitJob = scope.launch {
-                        var attempts = 0
-                        val maxAttempts = 30
-                        while (attempts < maxAttempts) {
-                            try {
-                                val conn = URL(serverUrl).openConnection() as HttpURLConnection
-                                conn.connectTimeout = 1000
-                                conn.readTimeout = 1000
-                                conn.requestMethod = "HEAD"
-                                val code = conn.responseCode
-                                conn.disconnect()
-                                if (code in 200..399) {
-                                    isWaitingServer = false
-                                    return@launch
-                                }
-                            } catch (_: Exception) {
-                            }
-                            attempts++
-                            delay(1000)
-                        }
-                        isWaitingServer = false
-                    }
+                    retryJob?.cancel()
+                    retryCount++
+                    webViewRef?.loadUrl(serverUrl)
+                    loadState = LoadState.LOADING
                 }) {
-                    Text("重新加载")
+                    Text("立即重试")
                 }
             }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            waitJob?.cancel()
         }
     }
 }
