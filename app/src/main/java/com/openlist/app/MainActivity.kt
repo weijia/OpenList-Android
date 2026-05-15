@@ -209,7 +209,8 @@ fun OpenListWebView(
                         domStorageEnabled = true
                         databaseEnabled = true
                         cacheMode = WebSettings.LOAD_DEFAULT
-                        userAgentString = "OpenListApp/1.0"
+                        // 使用标准移动端 User-Agent，确保服务器返回手机版页面
+                        userAgentString = "${WebSettings.getDefaultUserAgent(context)} OpenListApp/1.0"
                         allowFileAccess = true
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
