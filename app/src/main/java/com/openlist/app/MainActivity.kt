@@ -10,27 +10,32 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -53,7 +58,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.openlist.app.service.OpenListService
 import com.openlist.app.ui.theme.OpenListAppTheme
@@ -99,71 +103,118 @@ fun MainScreen() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
+            // 简洁的顶部标题栏，不放操作按钮
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary
-                ),
-                actions = {
+                )
+            )
+        },
+        bottomBar = {
+            // 底部操作栏
+            Column {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    thickness = 1.dp
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 返回
+                    IconButton(
+                        onClick = {
+                            if (webView?.canGoBack() == true) {
+                                webView?.goBack()
+                            }
+                        },
+                        enabled = canGoBack
+                    ) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+
+                    // 首页
+                    IconButton(onClick = {
+                        currentUrl = DEFAULT_URL
+                        urlInput = DEFAULT_URL
+                        webView?.loadUrl(DEFAULT_URL)
+                    }) {
+                        Icon(Icons.Default.Home, contentDescription = "首页")
+                    }
+
+                    // 刷新
                     IconButton(onClick = { webView?.reload() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // 日志
                     IconButton(onClick = {
-                        context.startActivity(Intent(context, SettingsActivity::class.java))
+                        context.startActivity(Intent(context, LogViewerActivity::class.java))
                     }) {
-                        Icon(Icons.Default.Settings, contentDescription = "设置")
+                        Icon(
+                            android.R.drawable.ic_menu_info_details,
+                            contentDescription = "日志",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "更多")
+
+                    // 账号
+                    IconButton(onClick = {
+                        context.startActivity(Intent(context, AccountManagerActivity::class.java))
+                    }) {
+                        Icon(
+                            android.R.drawable.ic_menu_manage,
+                            contentDescription = "账号",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("刷新页面") },
-                            onClick = {
-                                menuExpanded = false
-                                webView?.reload()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("查看日志") },
-                            onClick = {
-                                menuExpanded = false
-                                context.startActivity(Intent(context, LogViewerActivity::class.java))
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("账号管理") },
-                            onClick = {
-                                menuExpanded = false
-                                context.startActivity(Intent(context, AccountManagerActivity::class.java))
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("重启服务") },
-                            onClick = {
-                                menuExpanded = false
-                                val intent = Intent(context, OpenListService::class.java)
-                                intent.action = OpenListService.ACTION_RESTART
-                                context.startService(intent)
-                                webView?.postDelayed({ webView?.reload() }, 3000)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("停止服务") },
-                            onClick = {
-                                menuExpanded = false
-                                val intent = Intent(context, OpenListService::class.java)
-                                intent.action = OpenListService.ACTION_STOP
-                                context.startService(intent)
-                            }
-                        )
+
+                    // 更多菜单
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "更多")
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("重启服务") },
+                                onClick = {
+                                    menuExpanded = false
+                                    val intent = Intent(context, OpenListService::class.java)
+                                    intent.action = OpenListService.ACTION_RESTART
+                                    context.startService(intent)
+                                    webView?.postDelayed({ webView?.reload() }, 3000)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("停止服务") },
+                                onClick = {
+                                    menuExpanded = false
+                                    val intent = Intent(context, OpenListService::class.java)
+                                    intent.action = OpenListService.ACTION_STOP
+                                    context.startService(intent)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("设置") },
+                                onClick = {
+                                    menuExpanded = false
+                                    context.startActivity(Intent(context, SettingsActivity::class.java))
+                                }
+                            )
+                        }
                     }
                 }
-            )
+            }
         }
     ) { innerPadding ->
         Column(
@@ -178,18 +229,6 @@ fun MainScreen() {
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 返回按钮
-                IconButton(
-                    onClick = {
-                        if (webView?.canGoBack() == true) {
-                            webView?.goBack()
-                        }
-                    },
-                    enabled = canGoBack
-                ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                }
-
                 // 地址输入框
                 OutlinedTextField(
                     value = urlInput,
@@ -202,7 +241,6 @@ fun MainScreen() {
                     keyboardActions = KeyboardActions(onGo = {
                         var url = urlInput.trim()
                         if (url.isNotBlank()) {
-                            // 自动补全 http://
                             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                                 url = "http://$url"
                                 urlInput = url
@@ -301,13 +339,11 @@ fun OpenListWebView(
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
-                        // 修复页面显示：启用宽视口+概览模式，让页面自动缩放适应屏幕
                         useWideViewPort = true
                         loadWithOverviewMode = true
                         setSupportZoom(true)
                         builtInZoomControls = true
                         displayZoomControls = false
-                        // 移除 setInitialScale，让系统自动计算缩放
                     }
 
                     isVerticalScrollBarEnabled = true
@@ -332,7 +368,6 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 不再强制 scrollTo(0,0)，让 loadWithOverviewMode 处理缩放和位置
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
@@ -382,25 +417,26 @@ fun OpenListWebView(
 
         // 底部错误提示栏
         if (loadState == LoadState.ERROR) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "服务器未就绪，正在重试... ($retryCount/10)",
+                    text = "未就齐，重试($retryCount/10)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = {
                     retryJob?.cancel()
                     retryCount++
                     webViewRef?.loadUrl(currentUrl)
                     loadState = LoadState.LOADING
                 }) {
-                    Text("立即重试")
+                    Text("重试")
                 }
             }
         }
