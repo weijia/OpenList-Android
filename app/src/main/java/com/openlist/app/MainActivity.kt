@@ -350,7 +350,7 @@ fun OpenListWebView(
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
                         useWideViewPort = true
-                        loadWithOverviewMode = true
+                        loadWithOverviewMode = false
                         setSupportZoom(true)
                         builtInZoomControls = true
                         displayZoomControls = false

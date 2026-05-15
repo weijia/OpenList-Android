@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -213,8 +214,12 @@ fun DevToolsScreen() {
                 state = listState
             ) {
                 items(consoleLogs) { log ->
+                    val decoded = log.message
+                        .replace("\\u003c", "<").replace("\\u003e", ">")
+                        .replace("\\u0026", "&")
+                        .replace("\\n", "\n")
                     Text(
-                        text = "[${log.level}] ${log.message}${if (log.source.isNotBlank()) " ($log.source)" else ""}",
+                        text = "[${log.level}] $decoded${if (log.source.isNotBlank()) " (${log.source})" else ""}",
                         fontSize = 11.sp,
                         color = when (log.level) {
                             "E" -> Color.Red
@@ -241,13 +246,19 @@ fun DevToolsScreen() {
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
-                Text(
-                    text = pageSource.take(1000),
-                    fontSize = 10.sp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp)
-                )
+                val decodedSource = pageSource.take(1000)
+                    .replace("\\u003c", "<").replace("\\u003e", ">")
+                    .replace("\\u0026", "&").replace("\\n", "\n")
+                    .replace("\\\"", "\"").replace("\\/", "/")
+                SelectionContainer {
+                    Text(
+                        text = decodedSource,
+                        fontSize = 10.sp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    )
+                }
                 TextButton(
                     onClick = { pageSource = "" },
                     modifier = Modifier.padding(horizontal = 8.dp)
