@@ -393,12 +393,21 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 最小干预：只设置 html 高度 = innerHeight
-                            // 手机浏览器会自动做这个，但 WebView 不会
-                            view?.evaluateJavascript(
-                                "document.documentElement.style.height=window.innerHeight+'px';",
-                                null
-                            )
+                            // WebView 和手机浏览器的差异：
+                            // 手机浏览器自动设置 html 高度 = 视口高度
+                            // WebView 的 html 高度默认为 0
+                            // Hope UI Center 依赖父容器高度，需要手动设置
+                            view?.evaluateJavascript("""
+                                (function(){
+                                    var h=window.innerHeight;
+                                    document.documentElement.style.height=h+'px';
+                                    var c=document.querySelector('.hope-center');
+                                    if(c){
+                                        c.style.height=h+'px';
+                                        c.style.minHeight=h+'px';
+                                    }
+                                })();
+                            """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
