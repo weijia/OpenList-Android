@@ -358,13 +358,14 @@ fun OpenListWebView(
                         domStorageEnabled = true
                         databaseEnabled = true
                         cacheMode = WebSettings.LOAD_DEFAULT
-                        userAgentString = "OpenListApp/1.0"
+                        // 使用系统默认 User-Agent（和手机浏览器一致）
                         allowFileAccess = true
                         allowContentAccess = true
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         
+                        // 和手机浏览器一致的设置
                         useWideViewPort = true
-                        loadWithOverviewMode = false
+                        loadWithOverviewMode = true
                         setSupportZoom(true)
                         builtInZoomControls = true
                         displayZoomControls = false
@@ -392,44 +393,6 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // 修复 OpenList 前端布局：
-                            // Hope UI Center 用 flex+justifyContent:center 垂直居中
-                            // 但 html/body 高度为 0，导致内容被推到屏幕外
-                            // 用 resize 监听 + 通用选择器适配所有页面
-                            view?.evaluateJavascript("""
-                                (function() {
-                                    var vp = document.querySelector('meta[name="viewport"]');
-                                    if (vp) {
-                                        vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
-                                    }
-                                    function fixLayout() {
-                                        var h = window.innerHeight;
-                                        document.documentElement.style.height = h + 'px';
-                                        document.body.style.height = '100%';
-                                        var root = document.getElementById('root');
-                                        if (root) root.style.height = '100%';
-                                        // 通用选择器：找所有 flex 居中容器
-                                        var all = document.querySelectorAll('div[style*="center"], [class*="center"], [class*="Center"]');
-                                        for (var i = 0; i < all.length; i++) {
-                                            var el = all[i];
-                                            var cs = window.getComputedStyle(el);
-                                            if ((cs.display === 'flex' || cs.display === 'grid') && 
-                                                (cs.justifyContent === 'center' || cs.alignItems === 'center')) {
-                                                el.style.height = h + 'px';
-                                                el.style.minHeight = h + 'px';
-                                            }
-                                        }
-                                    }
-                                    fixLayout();
-                                    setTimeout(fixLayout, 500);
-                                    setTimeout(fixLayout, 1000);
-                                    setTimeout(fixLayout, 2000);
-                                    // 监听窗口大小变化（键盘弹出/收起）
-                                    window.addEventListener('resize', function() {
-                                        setTimeout(fixLayout, 100);
-                                    });
-                                })();
-                            """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
