@@ -392,8 +392,9 @@ fun OpenListWebView(
                             super.onPageFinished(view, url)
                             // 修复 OpenList 前端布局：
                             // OpenList 登录页使用 100vh + 垂直居中，
-                            // WebView 中 100vh 包含了地址栏/底部栏高度，
-                            // 导致实际内容被推到可视区域外
+                            // 但 100vh = screen.height (800px)，而 WebView 只有 309px
+                            // 导致居中内容被推到 WebView 可见区域之外
+                            // 解决：把 100vh 替换为 100%（相对于父容器）
                             view?.evaluateJavascript("""
                                 (function() {
                                     // 允许缩放
@@ -401,32 +402,22 @@ fun OpenListWebView(
                                     if (vp) {
                                         vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
                                     }
-                                    // 用 CSS 变量把 100vh 替换为 100dvh（动态视口高度）
-                                    // dvh 会自动减去浏览器 UI 占用的空间
+                                    // 注入 CSS：把所有 100vh 替换为 100%
                                     var s = document.createElement('style');
                                     s.id = 'openlist-fix';
-                                    s.textContent = ':root { --vh-fix: 100dvh; }';
+                                    s.textContent = 
+                                        'html, body { height: 100% !important; }' +
+                                        'html > body > div { height: 100% !important; min-height: 100% !important; }' +
+                                        'html > body > div > div { height: 100% !important; min-height: 100% !important; }';
                                     document.head.appendChild(s);
-                                    // 遍历所有元素，把内联样式中的 100vh 替换为 100dvh
+                                    // 遍历所有元素，把内联样式中的 100vh 替换为 100%
                                     var all = document.querySelectorAll('*');
                                     for (var i = 0; i < all.length; i++) {
                                         var el = all[i];
                                         var style = el.getAttribute('style');
                                         if (style && style.indexOf('100vh') !== -1) {
-                                            el.setAttribute('style', style.replace(/100vh/g, '100dvh'));
+                                            el.setAttribute('style', style.replace(/100vh/g, '100%'));
                                         }
-                                    }
-                                    // 替换所有 stylesheet 中的 100vh
-                                    var sheets = document.styleSheets;
-                                    for (var i = 0; i < sheets.length; i++) {
-                                        try {
-                                            var rules = sheets[i].cssRules || sheets[i].rules;
-                                            for (var j = 0; j < rules.length; j++) {
-                                                if (rules[j].cssText && rules[j].cssText.indexOf('100vh') !== -1) {
-                                                    // 无法直接修改 cssRules，用替换 stylesheet 文本方式
-                                                }
-                                            }
-                                        } catch(e) {}
                                     }
                                 })();
                             """.trimIndent(), null)
