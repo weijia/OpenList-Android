@@ -101,139 +101,27 @@ fun MainScreen() {
     var urlInput by remember { mutableStateOf(DEFAULT_URL) }
     var canGoBack by remember { mutableStateOf(false) }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            // 底部标题栏 + 操作栏
-            Column {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 1.dp
-                )
-                // 标题
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                // 操作按钮
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // 返回
-                    IconButton(
-                        onClick = {
-                            if (webView?.canGoBack() == true) {
-                                webView?.goBack()
-                            }
-                        },
-                        enabled = canGoBack
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
-                    }
+    // WebView 全屏，地址栏和底部栏浮在上面
+    // 这样 100vh = screen.height = WebView 高度，和手机浏览器行为一致
+    Box(modifier = Modifier.fillMaxSize()) {
+        // WebView 占满整个屏幕
+        OpenListWebView(
+            modifier = Modifier.fillMaxSize(),
+            currentUrl = currentUrl,
+            onUrlChanged = { url ->
+                currentUrl = url
+                urlInput = url
+            },
+            onCanGoBackChanged = { canGoBack = it },
+            onWebViewCreated = { wv -> webView = wv }
+        )
 
-                    // 首页
-                    IconButton(onClick = {
-                        currentUrl = DEFAULT_URL
-                        urlInput = DEFAULT_URL
-                        webView?.loadUrl(DEFAULT_URL)
-                    }) {
-                        Icon(Icons.Default.Home, contentDescription = "首页")
-                    }
-
-                    // 刷新
-                    IconButton(onClick = { webView?.reload() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // 日志
-                    IconButton(onClick = {
-                        context.startActivity(Intent(context, LogViewerActivity::class.java))
-                    }) {
-                        Icon(
-                            painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_info_details),
-                            contentDescription = "日志"
-                        )
-                    }
-
-                    // 账号
-                    IconButton(onClick = {
-                        context.startActivity(Intent(context, AccountManagerActivity::class.java))
-                    }) {
-                        Icon(
-                            painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_manage),
-                            contentDescription = "账号"
-                        )
-                    }
-
-                    // 更多菜单
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "更多")
-                        }
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("重启服务") },
-                                onClick = {
-                                    menuExpanded = false
-                                    val intent = Intent(context, OpenListService::class.java)
-                                    intent.action = OpenListService.ACTION_RESTART
-                                    context.startService(intent)
-                                    webView?.postDelayed({ webView?.reload() }, 3000)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("停止服务") },
-                                onClick = {
-                                    menuExpanded = false
-                                    val intent = Intent(context, OpenListService::class.java)
-                                    intent.action = OpenListService.ACTION_STOP
-                                    context.startService(intent)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("设置") },
-                                onClick = {
-                                    menuExpanded = false
-                                    context.startActivity(Intent(context, SettingsActivity::class.java))
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("开发者工具") },
-                                onClick = {
-                                    menuExpanded = false
-                                    context.startActivity(Intent(context, DevToolsActivity::class.java))
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    ) { innerPadding ->
+        // 地址栏浮在顶部
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+                .fillMaxWidth()
+                .align(Alignment.TopStart)
         ) {
-            // ─── 地址栏 ─────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -254,7 +142,6 @@ fun MainScreen() {
                         val input = urlInput.trim()
                         if (input.isNotBlank()) {
                             if (input.startsWith("javascript:")) {
-                                // 执行 JavaScript
                                 webView?.evaluateJavascript(input.removePrefix("javascript:"), null)
                             } else {
                                 var url = input
@@ -276,7 +163,6 @@ fun MainScreen() {
                     val input = urlInput.trim()
                     if (input.isNotBlank()) {
                         if (input.startsWith("javascript:")) {
-                            // 执行 JavaScript
                             webView?.evaluateJavascript(input.removePrefix("javascript:"), null)
                         } else {
                             var url = input
@@ -292,18 +178,135 @@ fun MainScreen() {
                     Icon(Icons.Default.Search, contentDescription = "前往")
                 }
             }
+        }
 
-            // ─── WebView ─────────────────────────────────────
-            OpenListWebView(
-                modifier = Modifier.weight(1f),
-                currentUrl = currentUrl,
-                onUrlChanged = { url ->
-                    currentUrl = url
-                    urlInput = url
-                },
-                onCanGoBackChanged = { canGoBack = it },
-                onWebViewCreated = { wv -> webView = wv }
+        // 底部栏浮在底部
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomStart)
+        ) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                thickness = 1.dp
             )
+            // 标题
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            // 操作按钮
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 返回
+                IconButton(
+                    onClick = {
+                        if (webView?.canGoBack() == true) {
+                            webView?.goBack()
+                        }
+                    },
+                    enabled = canGoBack
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                }
+
+                // 首页
+                IconButton(onClick = {
+                    currentUrl = DEFAULT_URL
+                    urlInput = DEFAULT_URL
+                    webView?.loadUrl(DEFAULT_URL)
+                }) {
+                    Icon(Icons.Default.Home, contentDescription = "首页")
+                }
+
+                // 刷新
+                IconButton(onClick = { webView?.reload() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "刷新")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 日志
+                IconButton(onClick = {
+                    context.startActivity(Intent(context, LogViewerActivity::class.java))
+                }) {
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_info_details),
+                        contentDescription = "日志"
+                    )
+                }
+
+                // 账号
+                IconButton(onClick = {
+                    context.startActivity(Intent(context, AccountManagerActivity::class.java))
+                }) {
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_manage),
+                        contentDescription = "账号"
+                    )
+                }
+
+                // 更多菜单
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "更多")
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("重启服务") },
+                            onClick = {
+                                menuExpanded = false
+                                val intent = Intent(context, OpenListService::class.java)
+                                intent.action = OpenListService.ACTION_RESTART
+                                context.startService(intent)
+                                webView?.postDelayed({ webView?.reload() }, 3000)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("停止服务") },
+                            onClick = {
+                                menuExpanded = false
+                                val intent = Intent(context, OpenListService::class.java)
+                                intent.action = OpenListService.ACTION_STOP
+                                context.startService(intent)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("设置") },
+                            onClick = {
+                                menuExpanded = false
+                                context.startActivity(Intent(context, SettingsActivity::class.java))
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("开发者工具") },
+                            onClick = {
+                                menuExpanded = false
+                                context.startActivity(Intent(context, DevToolsActivity::class.java))
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -393,22 +396,6 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // WebView 中 100vh = screen.height (800px)，但可见区域只有 309px
-                            // Hope UI Center 用 100vh 居中，导致内容被推到可见区域外
-                            // 修复：用 CSS 覆盖 100vh，使其等于 innerHeight（可见区域高度）
-                            view?.evaluateJavascript("""
-                                (function(){
-                                    var h = window.innerHeight;
-                                    // 注入 CSS 变量，让 100vh = 可见区域高度
-                                    var s = document.createElement('style');
-                                    s.id = 'openlist-vh-fix';
-                                    s.textContent = 
-                                        ':root { --vh: ' + h + 'px; }' +
-                                        'html, body { height: auto; }' +
-                                        '.hope-center, [class*="center"] { height: ' + h + 'px !important; min-height: ' + h + 'px !important; }';
-                                    document.head.appendChild(s);
-                                })();
-                            """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
