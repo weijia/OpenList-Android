@@ -391,10 +391,8 @@ fun OpenListWebView(
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             // 修复 OpenList 前端布局：
-                            // OpenList 登录页使用 100vh + 垂直居中，
-                            // 但 100vh = screen.height (800px)，而 WebView 只有 309px
-                            // 导致居中内容被推到 WebView 可见区域之外
-                            // 解决：把 100vh 替换为 100%（相对于父容器）
+                            // OpenList 是 SPA (Vue)，onPageFinished 时 JS 可能还没渲染完 DOM
+                            // 需要延迟执行，等 Vue 渲染完成后再注入 CSS
                             view?.evaluateJavascript("""
                                 (function() {
                                     // 允许缩放
@@ -402,23 +400,36 @@ fun OpenListWebView(
                                     if (vp) {
                                         vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
                                     }
-                                    // 注入 CSS：把所有 100vh 替换为 100%
-                                    var s = document.createElement('style');
-                                    s.id = 'openlist-fix';
-                                    s.textContent = 
-                                        'html, body { height: 100% !important; }' +
-                                        'html > body > div { height: 100% !important; min-height: 100% !important; }' +
-                                        'html > body > div > div { height: 100% !important; min-height: 100% !important; }';
-                                    document.head.appendChild(s);
-                                    // 遍历所有元素，把内联样式中的 100vh 替换为 100%
-                                    var all = document.querySelectorAll('*');
-                                    for (var i = 0; i < all.length; i++) {
-                                        var el = all[i];
-                                        var style = el.getAttribute('style');
-                                        if (style && style.indexOf('100vh') !== -1) {
-                                            el.setAttribute('style', style.replace(/100vh/g, '100%'));
+                                    // 延迟执行，等 SPA 渲染完成
+                                    function fixLayout() {
+                                        // 注入 CSS
+                                        var s = document.getElementById('openlist-fix');
+                                        if (!s) {
+                                            s = document.createElement('style');
+                                            s.id = 'openlist-fix';
+                                            document.head.appendChild(s);
+                                        }
+                                        s.textContent = 
+                                            'html, body { height: 100% !important; }' +
+                                            '#root, #root > div, #root > div > div { height: 100% !important; min-height: 100% !important; }';
+                                        // 替换内联样式中的 100vh
+                                        var all = document.querySelectorAll('*');
+                                        for (var i = 0; i < all.length; i++) {
+                                            var el = all[i];
+                                            var style = el.getAttribute('style');
+                                            if (style && style.indexOf('100vh') !== -1) {
+                                                el.setAttribute('style', style.replace(/100vh/g, '100%'));
+                                            }
                                         }
                                     }
+                                    // 立即执行一次
+                                    fixLayout();
+                                    // 500ms 后再执行一次（等 SPA 渲染完成）
+                                    setTimeout(fixLayout, 500);
+                                    // 1s 后再执行一次（确保完全渲染）
+                                    setTimeout(fixLayout, 1000);
+                                    // 2s 后再执行一次（兜底）
+                                    setTimeout(fixLayout, 2000);
                                 })();
                             """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
