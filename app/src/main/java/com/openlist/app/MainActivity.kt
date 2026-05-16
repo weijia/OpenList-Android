@@ -249,14 +249,20 @@ fun MainScreen() {
                     textStyle = androidx.compose.ui.text.TextStyle(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                     keyboardActions = KeyboardActions(onGo = {
-                        var url = urlInput.trim()
-                        if (url.isNotBlank()) {
-                            if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                                url = "http://$url"
-                                urlInput = url
+                        val input = urlInput.trim()
+                        if (input.isNotBlank()) {
+                            if (input.startsWith("javascript:")) {
+                                // 执行 JavaScript
+                                webView?.evaluateJavascript(input.removePrefix("javascript:"), null)
+                            } else {
+                                var url = input
+                                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                                    url = "http://$url"
+                                    urlInput = url
+                                }
+                                currentUrl = url
+                                webView?.loadUrl(url)
                             }
-                            currentUrl = url
-                            webView?.loadUrl(url)
                         }
                     })
                 )
@@ -265,14 +271,20 @@ fun MainScreen() {
 
                 // 前往按钮
                 IconButton(onClick = {
-                    var url = urlInput.trim()
-                    if (url.isNotBlank()) {
-                        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                            url = "http://$url"
-                            urlInput = url
+                    val input = urlInput.trim()
+                    if (input.isNotBlank()) {
+                        if (input.startsWith("javascript:")) {
+                            // 执行 JavaScript
+                            webView?.evaluateJavascript(input.removePrefix("javascript:"), null)
+                        } else {
+                            var url = input
+                            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                                url = "http://$url"
+                                urlInput = url
+                            }
+                            currentUrl = url
+                            webView?.loadUrl(url)
                         }
-                        currentUrl = url
-                        webView?.loadUrl(url)
                     }
                 }) {
                     Icon(Icons.Default.Search, contentDescription = "前往")
