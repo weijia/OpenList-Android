@@ -396,11 +396,17 @@ fun OpenListWebView(
                             // WebView 和手机浏览器的差异：
                             // 手机浏览器自动设置 html 高度 = 视口高度
                             // WebView 的 html 高度默认为 0
-                            // Hope UI Center 依赖父容器高度，需要手动设置
+                            // 需要设置完整的高度链：html → body → #root → center
                             view?.evaluateJavascript("""
                                 (function(){
                                     var h=window.innerHeight;
                                     document.documentElement.style.height=h+'px';
+                                    document.body.style.height='100%';
+                                    var root=document.getElementById('root');
+                                    if(root){
+                                        root.style.height='100%';
+                                        root.style.minHeight='100%';
+                                    }
                                     var c=document.querySelector('.hope-center');
                                     if(c){
                                         c.style.height=h+'px';
