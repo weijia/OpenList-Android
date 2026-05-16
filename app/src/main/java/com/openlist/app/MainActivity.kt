@@ -393,6 +393,12 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
+                            // 最小干预：只设置 html 高度 = innerHeight
+                            // 手机浏览器会自动做这个，但 WebView 不会
+                            view?.evaluateJavascript(
+                                "document.documentElement.style.height=window.innerHeight+'px';",
+                                null
+                            )
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
