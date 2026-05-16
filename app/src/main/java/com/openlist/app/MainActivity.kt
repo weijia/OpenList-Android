@@ -10,6 +10,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -236,6 +237,7 @@ fun MainScreen() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -391,8 +393,9 @@ fun OpenListWebView(
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             // 修复 OpenList 前端布局：
-                            // OpenList 是 SPA (Vue)，onPageFinished 时 JS 可能还没渲染完 DOM
-                            // 需要延迟执行，等 Vue 渲染完成后再注入 CSS
+                            // Hope UI 的 Center 组件用 flex + justifyContent:center 垂直居中
+                            // 但 html/body/#root 高度都是 0，导致内容被推到 -208px
+                            // 修复：设置 html 高度 = innerHeight，让 flex 居中正常工作
                             view?.evaluateJavascript("""
                                 (function() {
                                     // 允许缩放
@@ -400,35 +403,23 @@ fun OpenListWebView(
                                     if (vp) {
                                         vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
                                     }
-                                    // 延迟执行，等 SPA 渲染完成
                                     function fixLayout() {
-                                        // 注入 CSS
-                                        var s = document.getElementById('openlist-fix');
-                                        if (!s) {
-                                            s = document.createElement('style');
-                                            s.id = 'openlist-fix';
-                                            document.head.appendChild(s);
-                                        }
-                                        s.textContent = 
-                                            'html, body { height: 100% !important; }' +
-                                            '#root, #root > div, #root > div > div { height: 100% !important; min-height: 100% !important; }';
-                                        // 替换内联样式中的 100vh
-                                        var all = document.querySelectorAll('*');
-                                        for (var i = 0; i < all.length; i++) {
-                                            var el = all[i];
-                                            var style = el.getAttribute('style');
-                                            if (style && style.indexOf('100vh') !== -1) {
-                                                el.setAttribute('style', style.replace(/100vh/g, '100%'));
-                                            }
+                                        var h = window.innerHeight;
+                                        // 设置 html 高度链，让 flex 居中正常工作
+                                        document.documentElement.style.height = h + 'px';
+                                        document.body.style.height = '100%';
+                                        var root = document.getElementById('root');
+                                        if (root) root.style.height = '100%';
+                                        // 直接设置 hope-center 的高度
+                                        var center = document.querySelector('.hope-center');
+                                        if (center) {
+                                            center.style.height = h + 'px';
+                                            center.style.minHeight = h + 'px';
                                         }
                                     }
-                                    // 立即执行一次
                                     fixLayout();
-                                    // 500ms 后再执行一次（等 SPA 渲染完成）
                                     setTimeout(fixLayout, 500);
-                                    // 1s 后再执行一次（确保完全渲染）
                                     setTimeout(fixLayout, 1000);
-                                    // 2s 后再执行一次（兜底）
                                     setTimeout(fixLayout, 2000);
                                 })();
                             """.trimIndent(), null)
