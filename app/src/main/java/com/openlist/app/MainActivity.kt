@@ -393,25 +393,20 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // WebView 和手机浏览器的差异：
-                            // 手机浏览器自动设置 html 高度 = 视口高度
-                            // WebView 的 html 高度默认为 0
-                            // 需要设置完整的高度链：html → body → #root → center
+                            // WebView 中 100vh = screen.height (800px)，但可见区域只有 309px
+                            // Hope UI Center 用 100vh 居中，导致内容被推到可见区域外
+                            // 修复：用 CSS 覆盖 100vh，使其等于 innerHeight（可见区域高度）
                             view?.evaluateJavascript("""
                                 (function(){
-                                    var h=window.innerHeight;
-                                    document.documentElement.style.height=h+'px';
-                                    document.body.style.height='100%';
-                                    var root=document.getElementById('root');
-                                    if(root){
-                                        root.style.height='100%';
-                                        root.style.minHeight='100%';
-                                    }
-                                    var c=document.querySelector('.hope-center');
-                                    if(c){
-                                        c.style.height=h+'px';
-                                        c.style.minHeight=h+'px';
-                                    }
+                                    var h = window.innerHeight;
+                                    // 注入 CSS 变量，让 100vh = 可见区域高度
+                                    var s = document.createElement('style');
+                                    s.id = 'openlist-vh-fix';
+                                    s.textContent = 
+                                        ':root { --vh: ' + h + 'px; }' +
+                                        'html, body { height: auto; }' +
+                                        '.hope-center, [class*="center"] { height: ' + h + 'px !important; min-height: ' + h + 'px !important; }';
+                                    document.head.appendChild(s);
                                 })();
                             """.trimIndent(), null)
                             if (loadState == LoadState.LOADING) {
