@@ -396,30 +396,24 @@ fun OpenListWebView(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // OpenList 使用 SolidJS + Hope UI
-                            // Hope UI Center 用 100vh 做垂直居中
-                            // 但 WebView 中 100vh = screen.height (800px)
-                            // 而 innerHeight 可能因为键盘/系统栏而变小
-                            // 修复：设置所有 flex 居中容器的高度 = innerHeight
+                            // WebView 和手机浏览器的关键差异：
+                            // 手机浏览器会自动设置 html 高度 = 视口高度
+                            // WebView 的 html 高度默认为 0，导致 height:100% 无法继承
+                            // 修复：手动设置完整的高度链 html → body → #root → .hope-center
                             view?.evaluateJavascript("""
                                 (function(){
-                                    function fixLayout(){
-                                        var h = window.innerHeight;
-                                        var all = document.querySelectorAll('[class*="hope-center"],[class*="hope-flex"],[class*="hope-stack"]');
-                                        for(var i=0;i<all.length;i++){
-                                            var cs = getComputedStyle(all[i]);
-                                            if(cs.display==='flex'&&(cs.justifyContent==='center'||cs.alignItems==='center')){
-                                                all[i].style.height = h+'px';
-                                                all[i].style.minHeight = h+'px';
-                                            }
-                                        }
+                                    var h = window.innerHeight;
+                                    document.documentElement.style.height = h + 'px';
+                                    document.body.style.height = '100%';
+                                    var root = document.getElementById('root');
+                                    if(root){
+                                        root.style.height = '100%';
+                                        root.style.minHeight = '100%';
                                     }
-                                    fixLayout();
-                                    setTimeout(fixLayout,500);
-                                    setTimeout(fixLayout,1000);
-                                    if(!window._openlistResizeListener){
-                                        window._openlistResizeListener = true;
-                                        window.addEventListener('resize',function(){setTimeout(fixLayout,100);});
+                                    var center = document.querySelector('.hope-center');
+                                    if(center){
+                                        center.style.height = '100%';
+                                        center.style.minHeight = '100%';
                                     }
                                 })();
                             """.trimIndent(), null)
