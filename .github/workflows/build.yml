@@ -79,6 +79,19 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
 
+      - name: Upload APKs to SFTP Server
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: weijia/action-upload-sftp@master
+        with:
+          sftp-host: ${{ secrets.SFTP_HOST }}
+          sftp-port: ${{ secrets.SFTP_PORT }}
+          sftp-username: ${{ secrets.SFTP_USERNAME }}
+          sftp-password: ${{ secrets.SFTP_PASSWORD }}
+          source-path: app/build/outputs/apk/
+          remote-path: /home/github/apps/OpenList-Android/
+          cleanup-old-files: 'true'
+          max-keep-files: 5
+
       - name: Create Release (on main push, tag only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
