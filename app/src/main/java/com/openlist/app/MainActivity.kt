@@ -73,6 +73,10 @@ private enum class LoadState { LOADING, LOADED, ERROR }
 
 private const val DEFAULT_URL = "http://127.0.0.1:5244"
 
+// WebView 上报的是含 fragment 的完整地址；zb 把浏览状态塞在 #!<base64> 里，
+// 直接回显会让地址栏变成一长串乱码，所以只显示去掉 fragment 的部分。
+private fun stripFragment(url: String): String = url.substringBefore('#')
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -399,7 +403,15 @@ fun OpenListWebView(
                         override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                             super.onPageStarted(view, url, favicon)
                             loadState = LoadState.LOADING
-                            url?.let { onUrlChanged(it) }
+                            // zb 用 #!<base64> 保存浏览状态，直接回显会让地址栏变成一长串乱码
+                            url?.let { onUrlChanged(stripFragment(it)) }
+                            onCanGoBackChanged(view?.canGoBack() == true)
+                        }
+
+                        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                            super.doUpdateVisitedHistory(view, url, isReload)
+                            // pushState/hash 变化也走这里；同样只显示去掉 fragment 的地址
+                            url?.let { onUrlChanged(stripFragment(it)) }
                             onCanGoBackChanged(view?.canGoBack() == true)
                         }
 
@@ -438,12 +450,10 @@ fun OpenListWebView(
                             request: WebResourceRequest?,
                             error: android.webkit.WebResourceError?
                         ) {
-                            view?.loadData(
-                                "<html><body style='background:white;'></body></html>",
-                                "text/html",
-                                "UTF-8"
-                            )
-                            if (request?.isForMainFrame == true && retryCount < 10) {
+                            // 只有主文档失败才处理。子资源（favicon、图片、脚本）失败
+                            // 以前会把整页 loadData 成白页，导致 /zb/ 看起来“什么都没显示”。
+                            if (request?.isForMainFrame != true) return
+                            if (retryCount < 10) {
                                 loadState = LoadState.ERROR
                                 scheduleRetry()
                             }
@@ -454,12 +464,8 @@ fun OpenListWebView(
                             request: WebResourceRequest?,
                             errorResponse: android.webkit.WebResourceResponse?
                         ) {
-                            view?.loadData(
-                                "<html><body style='background:white;'></body></html>",
-                                "text/html",
-                                "UTF-8"
-                            )
-                            if (request?.isForMainFrame == true && retryCount < 10) {
+                            if (request?.isForMainFrame != true) return
+                            if (retryCount < 10) {
                                 loadState = LoadState.ERROR
                                 scheduleRetry()
                             }
