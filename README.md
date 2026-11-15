@@ -212,3 +212,64 @@ val pb = ProcessBuilder(
 ## 问题反馈
 
 如有问题，请提交 Issue 或联系开发者。
+
+## 本地构建包含 zip-browser（/zb）的 APK
+
+官方 `beta` Release 里的 Android 二进制是旧版本（不含 `/zb`），且 OpenList 仓库的
+`Beta Release builds` 工作流最近的运行是失败的，release 资产没有刷新，所以直接跑
+`download-binaries.sh` 拿到的仍是 5 月的旧二进制。要在本地打出带 `/zb` 的 APK，按下面做：
+
+### 1. 交叉编译四个 ABI 的二进制
+
+在 `C:\codes\go\OpenList`（已含 `server/zb` 与 `public/zb`）里，把产物直接写进 `jniLibs`
+（该目录被 `.gitignore` 忽略，不会进仓库）：
+
+```powershell
+$env:GOROOT='C:\codes\_gosdk\go'; $env:PATH="$env:GOROOT\bin;"+$env:PATH
+$env:GOTOOLCHAIN='local'; $env:GOSUMDB='off'; $env:CGO_ENABLED='0'
+$env:GOOS='android'; $env:GOARCH='arm64'
+go build -o C:\codes\go\OpenList-Android\app\src\main\jniLibs\arm64-v8a\libopenlist.so .
+
+# arm / 386 / amd64 在 Go 里必须外部链接（cgo），用 NDK 的 clang 包装器：
+$env:CGO_ENABLED='1'
+$bin='C:\Android\Sdk\ndk\27.0.12077973\toolchains\llvm\prebuilt\windows-x86_64\bin'
+$env:GOARCH='arm';   $env:GOARM='7'; $env:CC="$bin\armv7a-linux-androideabi24-clang.cmd"
+go build -o ..\OpenList-Android\app\src\main\jniLibs\armeabi-v7a\libopenlist.so .
+$env:GOARCH='386';   $env:CC="$bin\i686-linux-android24-clang.cmd"
+go build -o ..\OpenList-Android\app\src\main\jniLibs\x86\libopenlist.so .
+$env:GOARCH='amd64'; $env:CC="$bin\x86_64-linux-android24-clang.cmd"
+go build -o ..\OpenList-Android\app\src\main\jniLibs\x86_64\libopenlist.so .
+```
+
+本机实测产物大小：arm64 202.0 MB、arm 198.9 MB、x86 208.3 MB、x86_64 209.3 MB
+（内含 `public/zb` 前端与 `public/dist` 后台前端）。
+
+### 2. 准备 SDK / JDK / Gradle
+
+- JDK 17（AGP 不接受 JDK 25）：`C:\Android\jdk17\jdk-17.0.21+9`
+- Android SDK：`C:\Android\Sdk`（platform-tools、platforms;android-35、build-tools;35.0.0、ndk;27.0.12077973）
+- `local.properties` 写 `sdk.dir=C:\\Android\\Sdk`
+- Gradle 8.11.1：`C:\Android\gradle-8.11.1`（本仓库没有 `gradle-wrapper.jar`，用这个）
+
+```powershell
+$env:JAVA_HOME='C:\Android\jdk17\jdk-17.0.21+9'
+$env:ANDROID_HOME='C:\Android\Sdk'
+$env:GRADLE_OPTS='-Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=29758'
+C:\Android\gradle-8.11.1\bin\gradle.bat --no-daemon assembleDebug
+```
+
+产物：`app\build\outputs\apk\debug\app-debug.apk`（本次实测 269.5 MB，四个 ABI 全带）。
+
+### 3. 验证 APK 里确实有 /zb
+
+```powershell
+C:\Android\Sdk\build-tools\35.0.0\aapt2.exe dump badging app\build\outputs\apk\debug\app-debug.apk
+# package versionCode=2 versionName=1.1.0
+# native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'
+```
+
+二进制里可检出 `__ZB_BASE__`、`zb-token`、`@manage`、`RemoteStorage` 等字符串，说明 zb 前端、
+内嵌后台前端与新驱动都在。
+
+注意：`jniLibs` 被忽略，CI（`.github/workflows/build.yml`）仍然从 `beta` Release 下载二进制；
+在 release 资产更新前推送 main 会让 CI 用旧二进制重打包，所以本次改动只在本地提交、未推送。
