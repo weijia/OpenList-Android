@@ -35,6 +35,12 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 不要用默认的 "tools" 包：新版 cmdline-tools 已移除该包，
+          # sdkmanager 会报 Failed to find package 'tools' 并 exit 1。
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
