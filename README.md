@@ -1,4 +1,4 @@
-# OpenList Android App
+﻿# OpenList Android App
 
 这是一个将 OpenList 文件管理器打包为 Android App 的项目。
 
@@ -273,3 +273,11 @@ C:\Android\Sdk\build-tools\35.0.0\aapt2.exe dump badging app\build\outputs\apk\d
 
 注意：`jniLibs` 被忽略，CI（`.github/workflows/build.yml`）仍然从 `beta` Release 下载二进制；
 在 release 资产更新前推送 main 会让 CI 用旧二进制重打包，所以本次改动只在本地提交、未推送。
+
+## 1.2.0：隐藏地址栏、直开 /zb、启动即自动登录
+
+- 地址栏已移除，写入 URL 的入口不再提供；WebView 直接打开 `http://127.0.0.1:5244/zb/`，系统返回键交给 WebView 历史。
+- App 启动时 `OpenListService` 会给服务进程加 `OPENLIST_ADMIN_PASSWORD=admin888`：这个 OpenList 分支在库里没有 admin 时才会用它建号（否则一直等 Web 安装向导，Android 上就没人建号，zb 也登不进去）。
+- 主界面 `LaunchedEffect` 轮询 `/api/public/settings` 等服务就绪，再 `POST /zb/api/login`（admin/admin888）拿 30 天有效的 `zb_token`，写进 WebView Cookie 后 `reload()`，所以打开页面就是已登录状态。
+- 若已有数据库里的 admin 密码不是 `admin888`（例如曾在浏览器向导里改过），更多菜单提供「重置管理员密码 (admin888)」：停服 → `openlist admin set admin888` → 起服。
+- 版本：versionCode 4 / versionName 1.2.0；只改 Kotlin，jniLibs 无需重编。

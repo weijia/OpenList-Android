@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.openlist.app.AuthConfig
 import com.openlist.app.MainActivity
 import com.openlist.app.OpenListApplication
 import com.openlist.app.data.LogManager
@@ -29,6 +30,7 @@ class OpenListService : Service() {
         const val ACTION_START = "START"
         const val ACTION_STOP = "STOP"
         const val ACTION_RESTART = "RESTART"
+        const val ACTION_RESET_ADMIN = "RESET_ADMIN"
         const val TAG = "OpenListService"
         private const val ACTION_NOTIFY_STOP = "com.openlist.app.ACTION_NOTIFY_STOP"
     }
@@ -49,6 +51,17 @@ class OpenListService : Service() {
             ACTION_RESTART -> {
                 stopServer()
                 Thread.sleep(1000)
+                startForeground()
+                startServer()
+                return START_STICKY
+            }
+            ACTION_RESET_ADMIN -> {
+                // 已有数据库里如果 admin 的密码不是 App 知道的那个，登录会失败。
+                // 这里先停服务（bolt 数据库同一时间只能一个进程打开），用 CLI 重置成
+                // AuthConfig.ADMIN_PASSWORD，再启动服务。
+                stopServer()
+                Thread.sleep(1000)
+                runAdminCli("set", AuthConfig.ADMIN_PASSWORD)
                 startForeground()
                 startServer()
                 return START_STICKY
@@ -134,6 +147,9 @@ class OpenListService : Service() {
                 val env = System.getenv().toMutableMap()
                 env["GOGC"] = "50"
                 env["GOMEMLIMIT"] = "256MiB"
+                // 首次启动（库里还没有 admin）时 OpenList 用这个环境变量创建管理员；
+                // 不设置的话它会一直等 Web 安装向导，Android 上没人建号，zb 也登不进去。
+                env["OPENLIST_ADMIN_PASSWORD"] = AuthConfig.ADMIN_PASSWORD
 
                 val pb = ProcessBuilder(
                     binaryFile.absolutePath,
@@ -202,6 +218,37 @@ class OpenListService : Service() {
         }
         process = null
         isRunning = false
+    }
+
+    // 调用 OpenList 自带的管理员 CLI（openlist admin set <password>）
+    private fun runAdminCli(vararg args: String) {
+        try {
+            val binaryFile = File(applicationInfo.nativeLibraryDir, "libopenlist.so")
+            val dataDir = File(filesDir, "openlist-data")
+            if (!dataDir.exists()) dataDir.mkdirs()
+            LogManager.appendLog(this, "执行管理员 CLI: admin ${args.joinToString(" ")}")
+            val pb = ProcessBuilder(
+                binaryFile.absolutePath,
+                "admin",
+                *args,
+                "--data", dataDir.absolutePath,
+                "--force-bin-dir"
+            ).apply {
+                directory(filesDir)
+                redirectErrorStream(true)
+            }
+            val p = pb.start()
+            p.inputStream.bufferedReader().use { reader ->
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    LogManager.appendLog(this, "CLI> ${line}")
+                }
+            }
+            val code = p.waitFor()
+            LogManager.appendLog(this, "管理员 CLI 结束，exit=$code")
+        } catch (e: Exception) {
+            LogManager.appendLog(this, "[ERROR] 管理员 CLI 失败: ${e.message}")
+        }
     }
 
     // ─── WakeLock ────────────────────────────────────────────

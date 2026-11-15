@@ -50,6 +50,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,12 +67,18 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.openlist.app.service.OpenListService
 import com.openlist.app.ui.theme.OpenListAppTheme
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import androidx.activity.compose.BackHandler
 
 private enum class LoadState { LOADING, LOADED, ERROR }
 
-private const val DEFAULT_URL = "http://127.0.0.1:5244"
+private const val DEFAULT_URL = "http://127.0.0.1:5244/zb/"
 
 // WebView 上报的是含 fragment 的完整地址；zb 把浏览状态塞在 #!<base64> 里，
 // 直接回显会让地址栏变成一长串乱码，所以只显示去掉 fragment 的部分。
@@ -111,8 +118,24 @@ fun MainScreen() {
     var menuExpanded by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var currentUrl by remember { mutableStateOf(DEFAULT_URL) }
-    var urlInput by remember { mutableStateOf(DEFAULT_URL) }
     var canGoBack by remember { mutableStateOf(false) }
+
+    // 启动流程：等服务起来 → 用 admin 登录 zb → 把 zb_token 写进 WebView Cookie → 刷新页面。
+    // admin 由 OpenListService 通过 OPENLIST_ADMIN_PASSWORD 在首次启动时创建。
+    LaunchedEffect(Unit) {
+        if (!waitForServer()) return@LaunchedEffect
+        val token = zbLogin()
+        if (token != null) {
+            android.webkit.CookieManager.getInstance().apply {
+                setCookie("http://127.0.0.1:5244", "zb_token=$token; Path=/")
+                flush()
+            }
+            delay(200)
+            webView?.post { webView?.reload() }
+        }
+    }
+
+    BackHandler(enabled = canGoBack) { webView?.goBack() }
 
     // WebView 全屏，地址栏和底部栏浮在上面
     // 这样 100vh = screen.height = WebView 高度，和手机浏览器行为一致
@@ -123,75 +146,10 @@ fun MainScreen() {
             currentUrl = currentUrl,
             onUrlChanged = { url ->
                 currentUrl = url
-                urlInput = url
             },
             onCanGoBackChanged = { canGoBack = it },
             onWebViewCreated = { wv -> webView = wv }
         )
-
-        // 地址栏浮在顶部
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopStart)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 地址输入框
-                OutlinedTextField(
-                    value = urlInput,
-                    onValueChange = { urlInput = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("输入网址...") },
-                    textStyle = androidx.compose.ui.text.TextStyle(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = {
-                        val input = urlInput.trim()
-                        if (input.isNotBlank()) {
-                            if (input.startsWith("javascript:")) {
-                                webView?.evaluateJavascript(input.removePrefix("javascript:"), null)
-                            } else {
-                                var url = input
-                                if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                                    url = "http://$url"
-                                    urlInput = url
-                                }
-                                currentUrl = url
-                                webView?.loadUrl(url)
-                            }
-                        }
-                    })
-                )
-
-                Spacer(modifier = Modifier.width(4.dp))
-
-                // 前往按钮
-                IconButton(onClick = {
-                    val input = urlInput.trim()
-                    if (input.isNotBlank()) {
-                        if (input.startsWith("javascript:")) {
-                            webView?.evaluateJavascript(input.removePrefix("javascript:"), null)
-                        } else {
-                            var url = input
-                            if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                                url = "http://$url"
-                                urlInput = url
-                            }
-                            currentUrl = url
-                            webView?.loadUrl(url)
-                        }
-                    }
-                }) {
-                    Icon(Icons.Default.Search, contentDescription = "前往")
-                }
-            }
-        }
 
         // 底部栏浮在底部
         Column(
@@ -242,7 +200,6 @@ fun MainScreen() {
                 // 首页
                 IconButton(onClick = {
                     currentUrl = DEFAULT_URL
-                    urlInput = DEFAULT_URL
                     webView?.loadUrl(DEFAULT_URL)
                 }) {
                     Icon(Icons.Default.Home, contentDescription = "首页")
@@ -292,6 +249,16 @@ fun MainScreen() {
                                 intent.action = OpenListService.ACTION_RESTART
                                 context.startService(intent)
                                 webView?.postDelayed({ webView?.reload() }, 3000)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("重置管理员密码 (${AuthConfig.ADMIN_PASSWORD})") },
+                            onClick = {
+                                menuExpanded = false
+                                val intent = Intent(context, OpenListService::class.java)
+                                intent.action = OpenListService.ACTION_RESET_ADMIN
+                                context.startService(intent)
+                                webView?.postDelayed({ webView?.reload() }, 6000)
                             }
                         )
                         DropdownMenuItem(
@@ -504,5 +471,50 @@ fun OpenListWebView(
                 }
             }
         }
+    }
+}
+
+// 轮询本机 OpenList 是否已经可以响应（服务异步启动，通常 1~3 秒）
+private suspend fun waitForServer(timeoutMs: Long = 30000): Boolean = withContext(Dispatchers.IO) {
+    val deadline = System.currentTimeMillis() + timeoutMs
+    while (System.currentTimeMillis() < deadline) {
+        try {
+            val conn = URL("http://127.0.0.1:5244/api/public/settings").openConnection() as HttpURLConnection
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
+            val code = conn.responseCode
+            conn.disconnect()
+            if (code == 200) return@withContext true
+        } catch (_: Exception) {
+            // 服务还没起来，继续等
+        }
+        delay(400)
+    }
+    false
+}
+
+// 用本地管理员登录 zb，拿 30 天有效期的 zb_token（随后写进 WebView Cookie）
+private suspend fun zbLogin(): String? = withContext(Dispatchers.IO) {
+    var conn: HttpURLConnection? = null
+    try {
+        conn = URL("http://127.0.0.1:5244/zb/api/login").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.connectTimeout = 3000
+        conn.readTimeout = 8000
+        val body = JSONObject()
+            .put("username", AuthConfig.ADMIN_USER)
+            .put("password", AuthConfig.ADMIN_PASSWORD)
+            .toString()
+        conn.outputStream.use { it.write(body.toByteArray()) }
+        val code = conn.responseCode
+        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+        val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
+        if (code == 200) JSONObject(text).optString("token").takeIf { it.isNotBlank() } else null
+    } catch (_: Exception) {
+        null
+    } finally {
+        conn?.disconnect()
     }
 }
