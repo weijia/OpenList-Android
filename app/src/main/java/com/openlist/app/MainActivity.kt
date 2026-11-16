@@ -387,24 +387,61 @@ fun OpenListWebView(
                             // WebView 和手机浏览器的关键差异：
                             // 手机浏览器会自动设置 html 高度 = 视口高度
                             // WebView 的 html 高度默认为 0，导致 height:100% 无法继承
-                            // 修复：手动设置完整的高度链 html → body → #root → .hope-center
-                            view?.evaluateJavascript("""
-                                (function(){
-                                    var h = window.innerHeight;
-                                    document.documentElement.style.height = h + 'px';
-                                    document.body.style.height = '100%';
-                                    var root = document.getElementById('root');
-                                    if(root){
-                                        root.style.height = '100%';
-                                        root.style.minHeight = '100%';
-                                    }
-                                    var center = document.querySelector('.hope-center');
-                                    if(center){
-                                        center.style.height = '100%';
-                                        center.style.minHeight = '100%';
-                                    }
-                                })();
-                            """.trimIndent(), null)
+                            // 后端管理页（/@login、/@manage）用 CSS !important 固定整条高度链；
+                            // 不能只写一次内联 px，React 重新渲染节点后内联样式会丢。
+                            if (url?.contains("/@") == true) {
+                                view?.evaluateJavascript("""
+                                    (function(){
+                                        // WebView 下 html/body 没有默认高度，必须用 px 显式撑开；
+                                        // 子容器和 .hope-center 的高度用 !important CSS 固定，
+                                        // 这样 React 重新渲染替换节点后仍然生效。
+                                        var h = window.innerHeight;
+                                        document.documentElement.style.height = h + 'px';
+                                        document.body.style.height = '100%';
+                                        var root = document.getElementById('root');
+                                        if(root){
+                                            root.style.height = '100%';
+                                            root.style.minHeight = '100%';
+                                        }
+                                        var id = 'openlist-android-layout-fix';
+                                        var s = document.getElementById(id);
+                                        if(!s){
+                                            s = document.createElement('style');
+                                            s.id = id;
+                                            (document.head || document.documentElement).appendChild(s);
+                                        }
+                                        s.textContent = (function(){
+                                            var css = '#root>div:first-child{height:100%!important;min-height:100%!important}';
+                                            if(location.pathname.indexOf('/@login') === 0){
+                                                css += '.hope-center:has(input){height:100%!important;min-height:100%!important}';
+                                            } else {
+                                                css += '#root>div:first-child>div>div{height:100%!important}';
+                                                css += '#root>div:first-child>div>div>div{height:100%!important}';
+                                            }
+                                            return css;
+                                        })();
+                                    })();
+                                """.trimIndent(), null)
+                            } else {
+                                // /zb/ 用 px 对齐实际视口高度，保持原有行为
+                                view?.evaluateJavascript("""
+                                    (function(){
+                                        var h = window.innerHeight;
+                                        document.documentElement.style.height = h + 'px';
+                                        document.body.style.height = '100%';
+                                        var root = document.getElementById('root');
+                                        if(root){
+                                            root.style.height = '100%';
+                                            root.style.minHeight = '100%';
+                                        }
+                                        var center = document.querySelector('.hope-center');
+                                        if(center){
+                                            center.style.height = '100%';
+                                            center.style.minHeight = '100%';
+                                        }
+                                    })();
+                                """.trimIndent(), null)
+                            }
                             if (loadState == LoadState.LOADING) {
                                 loadState = LoadState.LOADED
                                 retryCount = 0
