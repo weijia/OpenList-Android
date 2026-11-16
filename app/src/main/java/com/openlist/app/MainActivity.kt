@@ -1,7 +1,12 @@
 package com.openlist.app
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
+import android.widget.Toast
 import android.graphics.Color
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -93,11 +98,32 @@ class MainActivity : ComponentActivity() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.systemBars())
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        ensureSharedStorageAccess()
         startOpenListService()
         setContent {
             OpenListAppTheme {
                 MainScreen()
             }
+        }
+    }
+
+    // Android 11+ 需要“所有文件访问权限”才能读取用户共享存储中的真实文件；
+    // 没有它时 /sdcard 只暴露应用自己的目录。
+    private fun ensureSharedStorageAccess() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        if (Environment.isExternalStorageManager()) return
+        Toast.makeText(
+            this,
+            "请授予“所有文件访问权限”，否则无法浏览手机存储（sdcard）",
+            Toast.LENGTH_LONG
+        ).show()
+        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
         }
     }
 
@@ -348,7 +374,8 @@ fun OpenListWebView(
                         
                         // 和手机浏览器一致的设置
                         useWideViewPort = true
-                        loadWithOverviewMode = true
+                        // 让页面按 viewport meta 的 device-width 布局，而不是把宽页面整体缩小
+                        loadWithOverviewMode = false
                         setSupportZoom(true)
                         builtInZoomControls = true
                         displayZoomControls = false
