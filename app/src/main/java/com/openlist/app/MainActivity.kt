@@ -444,6 +444,11 @@ fun OpenListWebView(
                                             } else {
                                                 css += '#root>div:first-child>div>div{height:100%!important}';
                                                 css += '#root>div:first-child>div>div>div{height:100%!important}';
+                                                // WebView 里 100vh/100dvh 会被算成 0（innerHeight 正常，但 vh 单位失效），
+                                                // 管理后台左侧抽屉的遮罩和内容都依赖 100vh，会塌成 0 高只剩标题条。
+                                                // 抽屉容器本身是 fixed + 100vh，用 100% 相对它取高即可绕开 vh。
+                                                css += '.hope-drawer__overlay{height:100%!important}';
+                                                css += '.hope-drawer__content{height:100%!important;max-height:100%!important}';
                                             }
                                             return css;
                                         })();
