@@ -14,6 +14,7 @@ JNI_DIR="$SCRIPT_DIR/app/src/main/jniLibs"
 
 echo "=== 下载 OpenList Android 二进制文件 ==="
 
+# beta 资产已更新为 zb 行菜单避开 Android 原生底栏的二进制（2026-11-17）
 BASE_URL="https://github.com/weijia/OpenList/releases/download/beta"
 
 # 创建 jniLibs 目录结构
