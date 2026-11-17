@@ -163,12 +163,12 @@ fun MainScreen() {
 
     BackHandler(enabled = canGoBack) { webView?.goBack() }
 
-    // WebView 全屏，地址栏和底部栏浮在上面
-    // 这样 100vh = screen.height = WebView 高度，和手机浏览器行为一致
-    Box(modifier = Modifier.fillMaxSize()) {
-        // WebView 占满整个屏幕
+    // WebView 与底部栏上下排列：WebView 只占底部栏以上的区域。
+    // 以前用 Box 把底部栏浮在 WebView 上，页面最后一行和弹窗底部按钮
+    // 会被原生栏遮住，手机上看起来像“点不动”。
+    Column(modifier = Modifier.fillMaxSize()) {
         OpenListWebView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.weight(1f),
             currentUrl = currentUrl,
             onUrlChanged = { url ->
                 currentUrl = url
@@ -177,11 +177,10 @@ fun MainScreen() {
             onWebViewCreated = { wv -> webView = wv }
         )
 
-        // 底部栏浮在底部
+        // 底部栏固定在 WebView 下方，不再覆盖页面
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomStart)
         ) {
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
